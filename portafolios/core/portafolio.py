@@ -4,6 +4,8 @@ import pandas as pd
 from typing import Iterable, Optional, Callable, Any
 from ..metrics import asset as am
 from ..metrics import portfolio as pm
+from ..plots import pie,bar,bubble,corr_heatmap
+
 
 class Portfolio:
     """
@@ -168,3 +170,34 @@ class Portfolio:
             "sharpe_m":        self.kpi("sharpe_m",    ann_factor=ann_factor, rf_per_period=rf_per_period),
         }
 
+
+    def pastel(self, pesos=None, min_weight: float = 1e-3) -> None:
+        """
+        Gráfica de pastel para los pesos del portafolio.
+
+        Usa self.asset_returns.columns como universo y self.weights como pesos,
+        delegando la lógica a portafolios.plots.pie.pastel_portfolio.
+        """
+        return pie.pastel_portfolio(self, pesos=pesos, min_weight=min_weight)
+    
+    def barras(self, pesos=None, min_weight: float = 0.0) -> None:
+        """
+        Gráfica de barras para los pesos del portafolio.
+
+        Usa self.asset_returns.columns como universo y self.weights como pesos
+        por defecto. Delegamos la lógica a portafolios.plots.barpy.barras_portfolio.
+        """
+        return bar.barras_portfolio(self, pesos=pesos, min_weight=min_weight)
+
+    def bubbleplot(self, pesos=None, min_weight: float = 0.0):
+        """
+        Bubble plot ER vs VOL por activo.
+        """
+        return bubble.bubbleplot_portfolio(self, pesos=pesos, min_weight=min_weight)
+
+    def corr_heatmap(self, kind: str = "correlation", round_decimals: int = 2) -> None:
+        """
+        Heatmap de correlación o covarianza usando las matrices del portafolio.
+        kind: "correlation" o "covariance".
+        """
+        return corr_heatmap.corr_heatmap_portfolio(self, kind=kind, round_decimals=round_decimals)
