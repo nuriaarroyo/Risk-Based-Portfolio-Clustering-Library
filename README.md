@@ -19,9 +19,11 @@ This repository contains my Honors Thesis library for Actuarial Science. It focu
 - [ ] **Plot Management**: Standardizing the export of Plotly/Matplotlib visuals to the `/plots` directory.
 - [ ] **Backtesting Engine**: Finalizing the Monte Carlo and historical backtest modules for strategy validation.
 
-## 🛠 Tech Stack
-* **Language:** Python
-* **Libraries:** Pandas, NumPy, Plotly (for interactive risk-return visualizations).
+###  Core Infrastructure
+* **Optimization Engine:** Built on `SciPy.optimize` and `NumPy` for high-performance matrix calculations.
+* **Data Engineering:** Custom-built data pipeline using `Pandas` for time-series cleaning and ingestion.
+* **Visualization Suite:** Proprietary wrappers around `Plotly` and `Matplotlib` for specialized HRP analysis (Dendrograms, Distance Matrices, and Heatmaps).
+* **Modular Architecture:** Fully decoupled system following Object-Oriented Programming (OOP) principles for scalability.
 * **Environment:** Managed via `requirements.txt`.
 
 
