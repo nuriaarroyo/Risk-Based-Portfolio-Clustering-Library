@@ -5,6 +5,9 @@ from typing import Iterable, Optional, Callable, Any
 from ..metrics import asset as am
 from ..metrics import portfolio as pm
 from ..plots import pie,bar,bubble,corr_heatmap
+from portafolios.constructores.hrp_style.hrp_core import HRPStyle
+from ..plots.hrp_plots import matrizdedist,getmatrix, histogramadedist
+
 
 
 
@@ -34,7 +37,11 @@ class Portfolio:
         # de assets
         self.asset_returns = None
         self.asset_log_returns = None
-        self.weights = None
+
+        self.weights: pd.Series | None = None         # pesos “activos”
+        self.constructions: dict[str, dict] = {}      # todas las construcciones
+        self.active_label: str | None = None
+
         self.asset_vol = None
         self.asset_vol_lr = None
         self.asset_mean_ret =None
@@ -94,6 +101,8 @@ class Portfolio:
         if self.asset_returns is None:
             raise RuntimeError("Llama primero a preparar_datos().")
         
+        self._last_constructor = constructor
+        
         w, meta = constructor.optimizar(self.asset_returns, **kwargs)
         self.weights = w.reindex(self.asset_returns.columns).fillna(0).sort_index()
 
@@ -104,6 +113,38 @@ class Portfolio:
         #aca calcularlas como hice en proparar datos para las de assets y lo que son las entradas de contruccion
 
         })
+        return self
+    
+    def construir(self, constructor, label: str | None = None, set_active: bool = True, **kwargs) -> "Portfolio":
+        if self.asset_returns is None:
+            raise RuntimeError("Llama primero a preparar_datos().")
+
+        w, meta = constructor.optimizar(self.asset_returns, **kwargs)
+
+        nombre_ctor = getattr(constructor, "nombre", type(constructor).__name__)
+
+        # Definir label si no viene
+        if label is None:
+            base = nombre_ctor
+            i = 0
+            label = base
+            while label in self.constructions:
+                i += 1
+                label = f"{base}_{i}"
+
+        # Guardar “historial”
+        self.constructions[label] = {
+            "weights": w.copy(),
+            "meta": meta or {},
+            "constructor_name": nombre_ctor,
+            "constructor_obj": constructor,
+        }
+
+        # Actualizar activos
+        if set_active:
+            self.weights = w.reindex(self.asset_returns.columns).fillna(0).sort_index()
+            self.active_label = label
+
         return self
 
 
@@ -202,3 +243,54 @@ class Portfolio:
         kind: "correlation" o "covariance".
         """
         return corr_heatmap.corr_heatmap_portfolio(self, kind=kind, round_decimals=round_decimals)
+    
+    def plot_hrp_matriz_distancias(self, file_path: str | None = None):
+        ctor = getattr(self, "_last_constructor", None)
+
+        if ctor is None:
+            print("Aún no has construido el portafolio con ningún constructor.")
+            return
+
+        # Duck-typing: solo HRP ha de tener last_dist
+        if not hasattr(ctor, "last_dist"):
+            print(
+                "Función disponible solo si el portafolio fue construido con HRPStyle "
+                "y ya se corrió al menos una vez."
+            )
+            return
+
+        return matrizdedist.matriz_distancias(ctor, file_path=file_path)
+
+    def plot_hrp_hist_distancias(self) -> None:
+        ctor = getattr(self, "_last_constructor", None)
+
+        if ctor is None:
+            print("Aún no has construido el portafolio con ningún constructor.")
+            return
+
+        if not isinstance(ctor, HRPStyle):
+            print("Función disponible solo si el portafolio fue construido con HRPStyle.")
+            return
+
+        if not hasattr(ctor, "last_dist"):
+            print("Este HRPStyle no tiene datos de distancias (¿ya corriste construir?).")
+            return
+
+        histogramadedist.histograma_distancias(ctor)
+
+    def get_hrp_dist_matrix(self) -> Optional[pd.DataFrame]:
+        ctor = getattr(self, "_last_constructor", None)
+
+        if ctor is None:
+            print("Aún no has construido el portafolio con ningún constructor.")
+            return None
+
+        if not isinstance(ctor, HRPStyle):
+            print("Función disponible solo si el portafolio fue construido con HRPStyle.")
+            return None
+
+        if not hasattr(ctor, "last_dist"):
+            print("Este HRPStyle no tiene datos de distancias (¿ya corriste construir?).")
+            return None
+
+        return getmatrix.get_distmat(ctor)

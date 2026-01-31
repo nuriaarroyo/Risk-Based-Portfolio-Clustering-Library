@@ -4,11 +4,16 @@ from __future__ import annotations
 from typing import Callable, Any
 import pandas as pd
 
-from .distancias.corr import corr_distance
+from .distancias  import corr, deprado
 from .clustering.simple_cluster import hierarchical_clusters
 
 
 from portafolios.constructores.naive import Naive
+
+DISTANCE_REGISTRY: dict[str, Callable[[pd.DataFrame], pd.DataFrame]] = {
+        "corr": corr.corr_distance,
+        "deprado": deprado.de_prado_embedding_distance,  # nombre como tú quieras  
+    }
 
 
 class HRPStyle:
@@ -31,29 +36,39 @@ class HRPStyle:
         p.construir(hrp)
     """
 
+    
+
+    
+
+
     def __init__(
-        self,
+           self,
         *,
         distance: str | Callable[[pd.DataFrame], pd.DataFrame] = "corr",
         clustering: str | Callable[[pd.DataFrame, int], list[list[str]]] = "hierarchical",
-        inner: Any | None = None,      # objeto tipo constructor (con .optimizar)
-        outer: Any | None = None,      # idem
+        inner: Any | None = None,
+        outer: Any | None = None,
         n_clusters: int = 3,
         nombre: str = "HRP-style",
     ) -> None:
         self.nombre = nombre
         self.n_clusters = n_clusters
 
+        
         # ----- resolver distancia -----
         if isinstance(distance, str):
-            if distance == "corr":
-                self.distance_func = corr_distance
-            else:
-                raise ValueError(f"Distancia desconocida: {distance}")
+                try:
+                    self.distance_func = DISTANCE_REGISTRY[distance]
+                except KeyError:
+                    raise ValueError(
+                        f"Distancia desconocida: {distance}. "
+                        f"Opciones válidas: {list(DISTANCE_REGISTRY.keys())}"
+                    )
         elif callable(distance):
-            self.distance_func = distance
+                self.distance_func = distance
         else:
-            raise TypeError("distance debe ser 'corr' o una función.")
+                raise TypeError("distance debe ser un string de DISTANCE_REGISTRY o una función.")
+
 
         # ----- resolver clustering -----
         if isinstance(clustering, str):
