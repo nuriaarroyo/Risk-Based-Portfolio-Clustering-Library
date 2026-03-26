@@ -1,14 +1,16 @@
 # portafolios/constructores/markowitz.py
 from __future__ import annotations
 
-from typing import Tuple, Dict, Any
+from typing import Any
 
 import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
 
+from .base import BaseConstructor
 
-class Markowitz:
+
+class Markowitz(BaseConstructor):
     """
     Constructor Markowitz que maximiza el Sharpe ratio histórico.
 
@@ -30,7 +32,7 @@ class Markowitz:
         allow_short: bool = False,
         bounds: Any = None,
         **kwargs,
-    ) -> Tuple[pd.Series, Dict[str, Any]]:
+    ) -> tuple[pd.Series, dict[str, Any]]:
 
         if returns is None or returns.empty:
             raise ValueError("El DataFrame de retornos está vacío o es None.")

@@ -8,7 +8,7 @@ from .distancias  import corr, deprado
 from .clustering.simple_cluster import hierarchical_clusters
 
 
-from portafolios.constructores.naive import Naive
+from portafolios.constructores.equal_weight import EqualWeightConstructor
 
 DISTANCE_REGISTRY: dict[str, Callable[[pd.DataFrame], pd.DataFrame]] = {
         "corr": corr.corr_distance,
@@ -23,13 +23,13 @@ class HRPStyle:
     Se usa así:
 
         from portafolios.constructores.hrp_style.hrp_core import HRPStyle
-        from portafolios.constructores.naive import Naive
+        from portafolios.constructores.equal_weight import EqualWeightConstructor
 
         hrp = HRPStyle(
             distance="corr",
             clustering="hierarchical",
-            inner=Naive(),   # constructor dentro de cada cluster
-            outer=Naive(),   # constructor entre clusters
+            inner=EqualWeightConstructor(),   # constructor dentro de cada cluster
+            outer=EqualWeightConstructor(),   # constructor entre clusters
             n_clusters=3,
         )
 
@@ -83,9 +83,9 @@ class HRPStyle:
             raise TypeError("clustering debe ser 'hierarchical' o una función.")
 
         # ----- constructores internos -----
-        # Si no te pasan nada, usa Naive() en ambos niveles
-        self.inner_constructor = inner if inner is not None else Naive()
-        self.outer_constructor = outer if outer is not None else Naive()
+        # Si no te pasan nada, usa EqualWeightConstructor() en ambos niveles
+        self.inner_constructor = inner if inner is not None else EqualWeightConstructor()
+        self.outer_constructor = outer if outer is not None else EqualWeightConstructor()
 
     # helper para correr cualquier constructor (Markowitz, Naive, etc.)
     def _run_constructor(

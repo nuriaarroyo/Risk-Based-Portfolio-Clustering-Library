@@ -1,6 +1,7 @@
 # portafolios/core/portafolio.py
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Callable, Iterable, Optional
 
 import pandas as pd
@@ -31,6 +32,8 @@ class Portfolio:
         loader: Optional[Callable[..., pd.DataFrame] | Any] = None,
         loader_kwargs: Optional[dict[str, Any]] = None,
         freq: Optional[str] = "B",
+        universe_name: Optional[str] = None,
+        base_output_dir: str | Path | None = None,
     ):
         self.tickers = list(tickers) if tickers is not None else None
         self.start = pd.Timestamp(start) if start else None
@@ -38,6 +41,16 @@ class Portfolio:
         self.freq = freq
         self.loader = loader
         self.loader_kwargs = loader_kwargs or {}
+        self.universe_name = universe_name or "universe"
+        self.base_output_dir = Path(base_output_dir) if base_output_dir is not None else Path("results")
+
+        self.output_dir = self.base_output_dir / self.universe_name
+        self.data_dir = self.output_dir / "data"
+        self.constructions_dir = self.output_dir / "constructions"
+        self.backtests_dir = self.output_dir / "backtests"
+        self.monte_carlo_dir = self.output_dir / "monte_carlo"
+        self.plots_dir = self.output_dir / "plots"
+        self.create_output_dirs()
 
         self.market_data: Optional[StandardizedData] = None
         self.prices: Optional[pd.DataFrame] = None
@@ -89,8 +102,49 @@ class Portfolio:
 
         self.metadata.clear()
         self.metadata.update(data.metadata)
+        self.metadata.update(
+            {
+                "universe_name": self.universe_name,
+                "output_dir": str(self.output_dir),
+            }
+        )
 
         return self
+
+    def create_output_dirs(self) -> None:
+        for path in (
+            self.output_dir,
+            self.data_dir,
+            self.constructions_dir,
+            self.backtests_dir,
+            self.monte_carlo_dir,
+            self.plots_dir,
+        ):
+            path.mkdir(parents=True, exist_ok=True)
+
+    def get_construction_dir(self, construction_name: str) -> Path:
+        path = self.constructions_dir / construction_name
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    def get_backtest_dir(self, construction_name: str) -> Path:
+        path = self.backtests_dir / construction_name
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    def get_mc_dir(self, construction_name: str) -> Path:
+        path = self.monte_carlo_dir / construction_name
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    def get_plot_dir(self, category: str | None = None, construction_name: str | None = None) -> Path:
+        path = self.plots_dir
+        if category is not None:
+            path = path / category
+        if construction_name is not None:
+            path = path / construction_name
+        path.mkdir(parents=True, exist_ok=True)
+        return path
 
     def _resolve_market_data(self) -> StandardizedData:
         if isinstance(self.loader, StandardizedData):
@@ -133,10 +187,28 @@ class Portfolio:
         return self
 
     def _build_construction_result(self, constructor, *, label: str | None = None, **kwargs) -> ConstructionResult:
+        construction_start = pd.Timestamp(kwargs.get("construction_start")) if kwargs.get("construction_start") is not None else self.start
+        construction_end = pd.Timestamp(kwargs.get("construction_end")) if kwargs.get("construction_end") is not None else self.end
+
         if hasattr(constructor, "build"):
             name = label or self._next_label(getattr(constructor, "nombre", type(constructor).__name__))
             result = constructor.build(self, name=name, **kwargs)
-            return self._normalize_construction_result(result)
+            result = self._normalize_construction_result(result)
+            if result.construction_start is None or result.construction_end is None:
+                return ConstructionResult(
+                    name=result.name,
+                    method=result.method,
+                    weights=result.weights,
+                    selected_assets=result.selected_assets,
+                    params=result.params,
+                    metrics_insample=result.metrics_insample,
+                    construction_start=construction_start if result.construction_start is None else result.construction_start,
+                    construction_end=construction_end if result.construction_end is None else result.construction_end,
+                    backtest_result=result.backtest_result,
+                    mc_result=result.mc_result,
+                    notes=result.notes,
+                )
+            return result
 
         if not hasattr(constructor, "optimizar"):
             raise TypeError("El constructor debe implementar `build(...)` o `optimizar(...)`.")
@@ -156,6 +228,8 @@ class Portfolio:
             selected_assets=[asset for asset in weights.index if weights.loc[asset] != 0],
             params=dict(kwargs),
             metrics_insample=metrics,
+            construction_start=construction_start,
+            construction_end=construction_end,
             backtest_result=None,
             mc_result=None,
             notes=kwargs.get("notes"),
@@ -224,6 +298,8 @@ class Portfolio:
             selected_assets=selected,
             params=dict(result.params),
             metrics_insample=dict(result.metrics_insample),
+            construction_start=result.construction_start,
+            construction_end=result.construction_end,
             backtest_result=result.backtest_result,
             mc_result=result.mc_result,
             notes=result.notes,

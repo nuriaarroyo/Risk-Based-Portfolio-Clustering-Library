@@ -1,12 +1,14 @@
 # portafolios/constructores/naive_rp.py
 from __future__ import annotations
 
-from typing import Any, Tuple, Dict
+from typing import Any
 import pandas as pd
 import numpy as np
 
+from .base import BaseConstructor
 
-class NaiveRiskParity:
+
+class NaiveRiskParity(BaseConstructor):
     """
     Constructor Naive Risk Parity (NRP).
 
@@ -17,7 +19,7 @@ class NaiveRiskParity:
 
     Uso típico:
 
-        from portafolios.constructores.naive_rp import NaiveRiskParity
+        from portafolios.constructores.naive_risk_parity import NaiveRiskParity
 
         nrp = NaiveRiskParity()
         w, meta = nrp.optimizar(asset_returns)
@@ -54,7 +56,7 @@ class NaiveRiskParity:
         self,
         asset_returns: pd.DataFrame,
         **kwargs: Any,
-    ) -> Tuple[pd.Series, Dict[str, Any]]:
+    ) -> tuple[pd.Series, dict[str, Any]]:
         """
         Recibe:
             asset_returns: DataFrame (fechas x activos)
@@ -80,7 +82,7 @@ class NaiveRiskParity:
         w = w.astype(float)
         w.name = "weights"
 
-        meta: Dict[str, Any] = {
+        meta: dict[str, Any] = {
             "nrp_method": "inverse_vol",
             "nrp_min_vol": self.min_vol,
             "nrp_sigma": sigma.to_dict(),
