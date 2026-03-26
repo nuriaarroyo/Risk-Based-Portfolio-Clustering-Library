@@ -1,6 +1,7 @@
 # portafolios/core/portafolio.py
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any, Callable, Iterable, Optional
 
@@ -34,6 +35,7 @@ class Portfolio:
         freq: Optional[str] = "B",
         universe_name: Optional[str] = None,
         base_output_dir: str | Path | None = None,
+        auto_save_data: bool = True,
     ):
         self.tickers = list(tickers) if tickers is not None else None
         self.start = pd.Timestamp(start) if start else None
@@ -43,6 +45,7 @@ class Portfolio:
         self.loader_kwargs = loader_kwargs or {}
         self.universe_name = universe_name or "universe"
         self.base_output_dir = Path(base_output_dir) if base_output_dir is not None else Path("results")
+        self.auto_save_data = auto_save_data
 
         self.output_dir = self.base_output_dir / self.universe_name
         self.data_dir = self.output_dir / "data"
@@ -109,6 +112,9 @@ class Portfolio:
             }
         )
 
+        if self.auto_save_data:
+            self.save_market_data()
+
         return self
 
     def create_output_dirs(self) -> None:
@@ -145,6 +151,151 @@ class Portfolio:
             path = path / construction_name
         path.mkdir(parents=True, exist_ok=True)
         return path
+
+    def save_market_data(self) -> None:
+        self.create_output_dirs()
+
+        if self.prices is not None and not self.prices.empty:
+            self.prices.to_csv(self.data_dir / "prices.csv")
+
+        if self.returns is not None and not self.returns.empty:
+            self.returns.to_csv(self.data_dir / "returns.csv")
+
+        metadata_payload = dict(self.metadata)
+        metadata_payload.update(
+            {
+                "universe_name": self.universe_name,
+                "output_dir": str(self.output_dir),
+                "frequency": self.freq,
+                "start": str(self.start) if self.start is not None else None,
+                "end": str(self.end) if self.end is not None else None,
+            }
+        )
+
+        with (self.data_dir / "metadata.json").open("w", encoding="utf-8") as f:
+            json.dump(metadata_payload, f, indent=2, default=str)
+
+        tickers_payload = list(self.tickers) if self.tickers is not None else []
+        with (self.data_dir / "tickers.json").open("w", encoding="utf-8") as f:
+            json.dump(tickers_payload, f, indent=2)
+
+    def save_construction(self, construction_name: str) -> Path:
+        construction = self.get_construction(construction_name)
+        construction_dir = self.get_construction_dir(construction_name)
+
+        construction.weights.to_csv(construction_dir / "weights.csv", header=["weight"])
+
+        with (construction_dir / "selected_assets.json").open("w", encoding="utf-8") as f:
+            json.dump(construction.selected_assets, f, indent=2)
+
+        with (construction_dir / "params.json").open("w", encoding="utf-8") as f:
+            json.dump(construction.params or {}, f, indent=2, default=str)
+
+        with (construction_dir / "metrics_insample.json").open("w", encoding="utf-8") as f:
+            json.dump(construction.metrics_insample or {}, f, indent=2, default=str)
+
+        window_payload = {
+            "construction_start": str(construction.construction_start) if construction.construction_start is not None else None,
+            "construction_end": str(construction.construction_end) if construction.construction_end is not None else None,
+        }
+        if any(value is not None for value in window_payload.values()):
+            with (construction_dir / "construction_window.json").open("w", encoding="utf-8") as f:
+                json.dump(window_payload, f, indent=2)
+
+        summary_payload = {
+            "name": construction.name,
+            "method": construction.method,
+            "notes": construction.notes,
+        }
+        with (construction_dir / "summary.json").open("w", encoding="utf-8") as f:
+            json.dump(summary_payload, f, indent=2, default=str)
+
+        return construction_dir
+
+    def save_all_constructions(self) -> dict[str, Path]:
+        saved_paths: dict[str, Path] = {}
+        for construction_name in self.list_constructions():
+            saved_paths[construction_name] = self.save_construction(construction_name)
+        return saved_paths
+
+    def save_backtest(self, construction_name: str) -> Path | None:
+        construction = self.get_construction(construction_name)
+        backtest = construction.backtest_result
+        if backtest is None:
+            return None
+
+        backtest_dir = self.get_backtest_dir(construction_name)
+
+        backtest.portfolio_returns.to_csv(backtest_dir / "portfolio_returns.csv", header=["return"])
+        backtest.cumulative_returns.to_csv(backtest_dir / "cumulative_returns.csv", header=["cumulative_return"])
+
+        with (backtest_dir / "summary_metrics.json").open("w", encoding="utf-8") as f:
+            json.dump(backtest.summary_metrics or {}, f, indent=2, default=str)
+
+        window_payload = {
+            "start_date": str(backtest.start_date),
+            "end_date": str(backtest.end_date),
+        }
+        with (backtest_dir / "backtest_window.json").open("w", encoding="utf-8") as f:
+            json.dump(window_payload, f, indent=2, default=str)
+
+        if backtest.notes:
+            with (backtest_dir / "notes.txt").open("w", encoding="utf-8") as f:
+                f.write(str(backtest.notes))
+
+        return backtest_dir
+
+    def save_all_backtests(self) -> dict[str, Path]:
+        saved_paths: dict[str, Path] = {}
+        for construction_name in self.list_constructions():
+            saved_path = self.save_backtest(construction_name)
+            if saved_path is not None:
+                saved_paths[construction_name] = saved_path
+        return saved_paths
+
+    def save_monte_carlo(self, construction_name: str) -> Path | None:
+        construction = self.get_construction(construction_name)
+        mc_result = construction.mc_result
+        if mc_result is None:
+            return None
+
+        mc_dir = self.get_mc_dir(construction_name)
+
+        simulated_paths = mc_result.simulated_paths
+        if isinstance(simulated_paths, pd.DataFrame):
+            simulated_paths.to_csv(mc_dir / "simulated_paths.csv")
+        else:
+            pd.DataFrame(simulated_paths).to_csv(mc_dir / "simulated_paths.csv", index=False)
+
+        pd.DataFrame({"terminal_value": mc_result.terminal_values}).to_csv(
+            mc_dir / "terminal_values.csv",
+            index=False,
+        )
+
+        with (mc_dir / "summary_metrics.json").open("w", encoding="utf-8") as f:
+            json.dump(mc_result.summary_metrics or {}, f, indent=2, default=str)
+
+        config_payload = {
+            "construction_name": mc_result.construction_name,
+            "horizon": mc_result.horizon,
+            "n_simulations": mc_result.n_simulations,
+        }
+        with (mc_dir / "simulation_config.json").open("w", encoding="utf-8") as f:
+            json.dump(config_payload, f, indent=2, default=str)
+
+        if mc_result.notes:
+            with (mc_dir / "notes.txt").open("w", encoding="utf-8") as f:
+                f.write(str(mc_result.notes))
+
+        return mc_dir
+
+    def save_all_monte_carlo(self) -> dict[str, Path]:
+        saved_paths: dict[str, Path] = {}
+        for construction_name in self.list_constructions():
+            saved_path = self.save_monte_carlo(construction_name)
+            if saved_path is not None:
+                saved_paths[construction_name] = saved_path
+        return saved_paths
 
     def _resolve_market_data(self) -> StandardizedData:
         if isinstance(self.loader, StandardizedData):
