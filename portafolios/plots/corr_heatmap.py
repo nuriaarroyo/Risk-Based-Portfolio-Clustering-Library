@@ -9,18 +9,18 @@ import pandas as pd
 import plotly.graph_objects as go
 
 if TYPE_CHECKING:
-    from ..core.portafolio import Portfolio
+    from ..core.universe import PortfolioUniverse
 
 
 def corr_heatmap_portfolio(
-    portfolio: "Portfolio",
+    portfolio: "PortfolioUniverse",
     kind: Literal["correlation", "covariance"] = "correlation",
     round_decimals: int = 2,
 ) -> None:
     """
     Heatmap (Plotly) de la matriz de correlación o covarianza del portafolio.
 
-    Usa solo cosas que ya tienes en Portfolio:
+    Usa solo cosas que ya tienes en PortfolioUniverse:
     - portfolio.correlation
     - portfolio.covariance
     - portfolio.asset_log_returns o asset_returns como respaldo

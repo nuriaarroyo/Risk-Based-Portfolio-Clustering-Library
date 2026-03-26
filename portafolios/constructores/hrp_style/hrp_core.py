@@ -18,7 +18,7 @@ DISTANCE_REGISTRY: dict[str, Callable[[pd.DataFrame], pd.DataFrame]] = {
 
 class HRPStyle:
     """
-    Constructor HRP-style de dos niveles, compatible con Portfolio.construir.
+    Constructor HRP-style de dos niveles, compatible con PortfolioUniverse.construir.
 
     Se usa así:
 

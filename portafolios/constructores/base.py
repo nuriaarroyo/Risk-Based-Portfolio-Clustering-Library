@@ -19,7 +19,7 @@ class BaseConstructor(ABC):
 
     def build(self, universe, name: str, **kwargs) -> ConstructionResult:
         if getattr(universe, "asset_returns", None) is None:
-            raise RuntimeError("El universe debe tener retornos preparados antes de construir.")
+            raise RuntimeError("El PortfolioUniverse debe tener retornos preparados antes de construir.")
 
         weights, meta = self.optimizar(universe.asset_returns, **kwargs)
         weights = weights.reindex(universe.asset_returns.columns).fillna(0.0).sort_index()

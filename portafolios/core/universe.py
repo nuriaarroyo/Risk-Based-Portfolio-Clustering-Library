@@ -1,9 +1,5 @@
 from __future__ import annotations
 
-from .portafolio import Portfolio
+from .portafolio import Portfolio, PortfolioUniverse, Universe
 
-
-PortfolioUniverse = Portfolio
-Universe = Portfolio
-
-__all__ = ["PortfolioUniverse", "Universe"]
+__all__ = ["PortfolioUniverse", "Universe", "Portfolio"]

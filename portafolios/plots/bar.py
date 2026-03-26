@@ -9,11 +9,11 @@ import pandas as pd
 import plotly.graph_objects as go
 
 if TYPE_CHECKING:
-    from ..core.portafolio import Portfolio
+    from ..core.universe import PortfolioUniverse
 
 
 def barras_portfolio(
-    portfolio: "Portfolio",
+    portfolio: "PortfolioUniverse",
     pesos: Optional[Union[Sequence[float], pd.Series]] = None,
     min_weight: float = 0.0,
 ) -> None:

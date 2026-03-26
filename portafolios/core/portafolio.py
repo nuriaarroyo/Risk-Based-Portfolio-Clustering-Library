@@ -17,7 +17,7 @@ from ..plots.hrp_plots import getmatrix, histogramadedist, matrizdedist
 from .types import ConstructionResult
 
 
-class Portfolio:
+class PortfolioUniverse:
     """
     Objeto principal del framework.
 
@@ -76,7 +76,7 @@ class Portfolio:
         # Backward-compatible alias
         self.info = self.metadata
 
-    def preparar_datos(self) -> "Portfolio":
+    def preparar_datos(self) -> "PortfolioUniverse":
         if self.loader is None:
             raise ValueError("Debes proporcionar un loader o un objeto de datos estandarizado.")
 
@@ -328,7 +328,7 @@ class Portfolio:
 
         raise TypeError("El loader debe devolver StandardizedData o un DataFrame de precios.")
 
-    def construir(self, constructor, label: str | None = None, set_active: bool = True, **kwargs) -> "Portfolio":
+    def construir(self, constructor, label: str | None = None, set_active: bool = True, **kwargs) -> "PortfolioUniverse":
         if self.asset_returns is None:
             raise RuntimeError("Llama primero a preparar_datos().")
 
@@ -601,4 +601,7 @@ class Portfolio:
         return getmatrix.get_distmat(ctor)
 
 
-Universe = Portfolio
+Portfolio = PortfolioUniverse
+Universe = PortfolioUniverse
+
+__all__ = ["PortfolioUniverse", "Universe", "Portfolio"]

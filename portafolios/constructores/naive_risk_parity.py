@@ -24,7 +24,7 @@ class NaiveRiskParity(BaseConstructor):
         nrp = NaiveRiskParity()
         w, meta = nrp.optimizar(asset_returns)
 
-    Es compatible con Portfolio.construir:
+    Es compatible con PortfolioUniverse.construir:
 
         p.construir(NaiveRiskParity())
 

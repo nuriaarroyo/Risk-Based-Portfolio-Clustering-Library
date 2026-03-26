@@ -14,7 +14,7 @@ class Markowitz(BaseConstructor):
     """
     Constructor Markowitz que maximiza el Sharpe ratio histórico.
 
-    Nota: Portfolio.construir le pasa `asset_returns` (retornos simples).
+    Nota: PortfolioUniverse.construir le pasa `asset_returns` (retornos simples).
     Aquí decidimos SI LOS USAMOS tal cual o los convertimos a log,
     según el parámetro `ret_kind`.
     """
@@ -37,7 +37,7 @@ class Markowitz(BaseConstructor):
         if returns is None or returns.empty:
             raise ValueError("El DataFrame de retornos está vacío o es None.")
 
-        # returns que vienen de Portfolio son retornos simples.
+        # returns que vienen de PortfolioUniverse son retornos simples.
         rets = returns.dropna(axis=0, how="any")
         if rets.empty:
             raise ValueError("No hay filas sin NaN en los retornos.")

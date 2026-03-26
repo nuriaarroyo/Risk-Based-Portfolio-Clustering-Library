@@ -9,17 +9,16 @@ import pandas as pd
 import plotly.graph_objects as go
 
 if TYPE_CHECKING:
-    # solo para type hints, sin import circular en runtime
-    from ..core.portafolio import Portfolio
+    from ..core.universe import PortfolioUniverse
 
 
 def pastel_portfolio(
-    portfolio: "Portfolio",
+    portfolio: "PortfolioUniverse",
     pesos: Optional[Union[Sequence[float], pd.Series]] = None,
     min_weight: float = 1e-3,
 ) -> None:
     """
-    Grafica un pastel (donut) de los pesos de un Portfolio.
+    Grafica un pastel (donut) de los pesos de un PortfolioUniverse.
 
     Usa únicamente:
     - portfolio.asset_returns.columns  (universo de activos)
