@@ -136,9 +136,3 @@ honores_actuaria/
 │  └─ data_exports/      # generated csv/html artifacts
 └─ README.md
 ```
-
-## Notes
-
-- The library is now English-first at the public API level.
-- Legacy code stays isolated under `legacy/`.
-- Existing Spanish method names remain as compatibility aliases while the English API becomes the main path.
