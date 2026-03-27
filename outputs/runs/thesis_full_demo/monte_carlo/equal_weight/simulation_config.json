@@ -1,0 +1,5 @@
+{
+  "construction_name": "equal_weight",
+  "horizon": 30,
+  "n_simulations": 500
+}

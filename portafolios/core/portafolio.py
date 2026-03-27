@@ -44,7 +44,7 @@ class PortfolioUniverse:
         self.loader = loader
         self.loader_kwargs = loader_kwargs or {}
         self.universe_name = universe_name or "universe"
-        self.base_output_dir = Path(base_output_dir) if base_output_dir is not None else Path("results")
+        self.base_output_dir = Path(base_output_dir) if base_output_dir is not None else Path("outputs") / "runs"
         self.auto_save_data = auto_save_data
 
         self.output_dir = self.base_output_dir / self.universe_name

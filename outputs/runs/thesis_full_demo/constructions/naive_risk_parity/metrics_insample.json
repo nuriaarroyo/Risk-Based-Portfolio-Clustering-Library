@@ -1,0 +1,14 @@
+{
+  "n_selected": 4,
+  "expected_return": 0.46069745755359814,
+  "volatility": 0.27739908320182105,
+  "sharpe_m": 1.6607749825128975,
+  "meta_nrp_method": "inverse_vol",
+  "meta_nrp_min_vol": 1e-08,
+  "meta_nrp_sigma": {
+    "AAPL": 0.023131691550599295,
+    "MSFT": 0.01900920334274881,
+    "AMZN": 0.021218361132286968,
+    "GOOG": 0.01886722865322027
+  }
+}

@@ -125,8 +125,8 @@ def bubbleplot_portfolio(
 
     # --- Guardar ---
     safe = str(constructor).replace(" ", "_").replace("/", "_")
-    plots_dir = Path.cwd() / "plots"
-    plots_dir.mkdir(exist_ok=True)
+    plots_dir = Path(getattr(portfolio, "plots_dir", Path.cwd() / "outputs" / "plots"))
+    plots_dir.mkdir(parents=True, exist_ok=True)
     out_path = plots_dir / f"bubble_plot_{safe}.html"
     fig.write_html(str(out_path))
 

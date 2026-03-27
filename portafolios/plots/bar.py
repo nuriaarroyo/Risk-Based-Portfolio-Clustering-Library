@@ -29,7 +29,7 @@ def barras_portfolio(
     - Alinea a asset_returns.columns; si faltan pesos en una Series, rellena con 0.
     - Normaliza si la suma != 1.
     - Puede filtrar pesos muy pequeños (min_weight).
-    - Guarda HTML en ./plots/ y hace fig.show().
+    - Guarda HTML en el directorio de salida del universo o en ./outputs/plots/.
     """
 
     # --- universo de activos ---
@@ -116,8 +116,8 @@ def barras_portfolio(
     # --- guardar y mostrar ---
     safe_name = str(constructor_name).replace(" ", "_").replace("(", "").replace(")", "").replace("/", "_").replace("\\", "_")
 
-    plots_dir = Path.cwd() / "plots"
-    plots_dir.mkdir(exist_ok=True)
+    plots_dir = Path(getattr(portfolio, "plots_dir", Path.cwd() / "outputs" / "plots"))
+    plots_dir.mkdir(parents=True, exist_ok=True)
 
     out_path = plots_dir / f"portfolio_barras_{safe_name}.html"
     fig.write_html(str(out_path))

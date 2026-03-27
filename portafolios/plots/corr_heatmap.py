@@ -115,8 +115,8 @@ def corr_heatmap_portfolio(
     # --- guardar ---
     safe_constructor = str(constructor_name).replace(" ", "_").replace("/", "_")
     suffix = "corr" if kind == "correlation" else "cov"
-    plots_dir = Path.cwd() / "plots"
-    plots_dir.mkdir(exist_ok=True)
+    plots_dir = Path(getattr(portfolio, "plots_dir", Path.cwd() / "outputs" / "plots"))
+    plots_dir.mkdir(parents=True, exist_ok=True)
 
     out_path = plots_dir / f"heatmap_{suffix}_{safe_constructor}.html"
     fig.write_html(str(out_path))

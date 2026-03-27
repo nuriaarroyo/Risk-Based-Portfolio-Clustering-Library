@@ -1,8 +1,0 @@
-{
-  "source": "callable_dataframe",
-  "frequency": "B",
-  "universe_name": "auto_save_data_demo",
-  "output_dir": "c:\\Users\\narro\\Desktop\\semestre\\honores_actuaria\\results_test\\auto_save_data_demo",
-  "start": "2020-01-01 00:00:00",
-  "end": "2020-01-10 00:00:00"
-}

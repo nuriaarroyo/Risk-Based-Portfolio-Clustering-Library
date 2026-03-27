@@ -27,7 +27,8 @@ def pastel_portfolio(
 
     Si `pesos` es None, usa `portfolio.weights`.
     Filtra pesos muy pequeños (min_weight).
-    Guarda el HTML en ./plots/ (carpeta en el cwd, NO en portafolios/plots).
+    Guarda el HTML en el directorio de salida del universo o, si no existe,
+    en ./outputs/plots/.
     """
 
     # --- universo de activos ---
@@ -186,11 +187,11 @@ def pastel_portfolio(
         ),
     )
 
-    # --- guardar en ./plots (fuera del paquete portafolios) ---
+    # --- guardar en el directorio de salida configurado ---
     safe_name = str(constructor_name).replace(" ", "_").replace("(", "").replace(")", "").replace("/", "_").replace("\\", "_")
 
-    plots_dir = Path.cwd() / "plots"
-    plots_dir.mkdir(exist_ok=True)
+    plots_dir = Path(getattr(portfolio, "plots_dir", Path.cwd() / "outputs" / "plots"))
+    plots_dir.mkdir(parents=True, exist_ok=True)
 
     out_path = plots_dir / f"portfolio_pastel_{safe_name}.html"
     fig.write_html(str(out_path))

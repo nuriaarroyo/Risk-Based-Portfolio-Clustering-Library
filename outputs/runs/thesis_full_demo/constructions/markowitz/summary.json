@@ -1,0 +1,5 @@
+{
+  "name": "markowitz",
+  "method": "markowitz_max_sharpe",
+  "notes": null
+}

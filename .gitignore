@@ -1,0 +1,10 @@
+.ipynb_checkpoints/
+__pycache__/
+*.py[cod]
+
+.yfinance-cache/
+
+outputs/plots/
+outputs/test_runs/
+
+notebooks/archive/
