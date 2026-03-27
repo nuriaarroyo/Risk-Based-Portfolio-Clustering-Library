@@ -117,6 +117,37 @@ outputs/runs/thesis_demo/constructions/hrp_style/
 
 If you pass a custom `label=...` when building, that label becomes the saved construction name.
 
+## In-Sample vs Out-of-Sample
+
+You can load a full universe horizon and then separate:
+
+- construction window with `construction_start` / `construction_end`
+- backtest window with `Backtester.run(...)`
+
+If you omit `start_date` and `end_date` in `Backtester.run()`, the backtest now defaults to:
+
+- start: first available return strictly after `construction_end`
+- end: last available return in the universe
+
+You can also summarize or plot a custom backtest subwindow:
+
+```python
+bt = Backtester(universe, "hrp_style")
+result = bt.run()
+
+window_summary = bt.summarize_window(
+    result,
+    start_date="2021-03-01",
+    end_date="2021-06-30",
+)
+
+fig = PortfolioVisualizer(universe).plot_backtest(
+    "hrp_style",
+    start_date="2021-03-01",
+    end_date="2021-06-30",
+)
+```
+
 ## Repository Structure
 
 ```text

@@ -75,11 +75,14 @@ class PortfolioVisualizer:
     def plot_backtest(
         self,
         construction_name: str,
+        start_date: str | pd.Timestamp | None = None,
+        end_date: str | pd.Timestamp | None = None,
         save_html: bool = False,
         filename: str | None = None,
     ) -> go.Figure:
         backtest = self._get_backtest(construction_name)
-        series = 1.0 + backtest.cumulative_returns
+        series = self._slice_series(backtest.cumulative_returns, start_date=start_date, end_date=end_date)
+        series = 1.0 + series
         fig = go.Figure()
         fig.add_trace(
             go.Scatter(
@@ -97,7 +100,13 @@ class PortfolioVisualizer:
         self._maybe_save_html(fig, save_html=save_html, filename=filename, kind="backtest", construction_name=construction_name, default_filename="backtest.html")
         return fig
 
-    def plot_backtest_comparison(self, save_html: bool = False, filename: str | None = None) -> go.Figure:
+    def plot_backtest_comparison(
+        self,
+        start_date: str | pd.Timestamp | None = None,
+        end_date: str | pd.Timestamp | None = None,
+        save_html: bool = False,
+        filename: str | None = None,
+    ) -> go.Figure:
         available = self._available_backtests()
         if not available:
             raise ValueError("No hay backtests guardados en el universe.")
@@ -105,6 +114,7 @@ class PortfolioVisualizer:
         wealth_series: dict[str, pd.Series] = {}
         for name, backtest in available.items():
             wealth = (1.0 + backtest.portfolio_returns).cumprod()
+            wealth = self._slice_series(wealth, start_date=start_date, end_date=end_date)
             wealth.name = name
             wealth_series[name] = wealth.sort_index()
 
@@ -280,6 +290,22 @@ class PortfolioVisualizer:
             for name, result in self.universe.constructions.items()
             if result.backtest_result is not None
         }
+
+    def _slice_series(
+        self,
+        series: pd.Series,
+        *,
+        start_date: str | pd.Timestamp | None,
+        end_date: str | pd.Timestamp | None,
+    ) -> pd.Series:
+        out = series.copy()
+        if start_date is not None:
+            out = out.loc[out.index >= pd.Timestamp(start_date)]
+        if end_date is not None:
+            out = out.loc[out.index <= pd.Timestamp(end_date)]
+        if out.empty:
+            raise ValueError("No hay datos del backtest en la ventana solicitada.")
+        return out
 
     def _paths_to_frame(self, paths: pd.DataFrame | np.ndarray) -> pd.DataFrame:
         if isinstance(paths, pd.DataFrame):

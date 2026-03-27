@@ -23,17 +23,21 @@ class BaseConstructor(ABC):
         """
 
     def build(self, universe, name: str, **kwargs) -> ConstructionResult:
-        if getattr(universe, "asset_returns", None) is None:
+        returns = kwargs.pop("returns", None)
+        if returns is None:
+            returns = getattr(universe, "asset_returns", None)
+
+        if returns is None:
             raise RuntimeError("El PortfolioUniverse debe tener retornos preparados antes de construir.")
 
-        weights, meta = self.optimizar(universe.asset_returns, **kwargs)
-        weights = weights.reindex(universe.asset_returns.columns).fillna(0.0).sort_index()
-        metrics = universe.make_basic_metrics(weights, ann_factor=kwargs.get("ann_factor"))
+        weights, meta = self.optimizar(returns, **kwargs)
+        weights = weights.reindex(returns.columns).fillna(0.0).sort_index()
+        metrics = universe.make_basic_metrics(weights, returns=returns, ann_factor=kwargs.get("ann_factor"))
         if meta:
             metrics.update({f"meta_{key}": value for key, value in meta.items()})
 
-        construction_start = kwargs.get("construction_start", getattr(universe, "start", None))
-        construction_end = kwargs.get("construction_end", getattr(universe, "end", None))
+        construction_start = kwargs.get("construction_start", getattr(universe, "construction_start", getattr(universe, "start", None)))
+        construction_end = kwargs.get("construction_end", getattr(universe, "construction_end", getattr(universe, "end", None)))
 
         return ConstructionResult(
             name=name,

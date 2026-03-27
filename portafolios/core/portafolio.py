@@ -30,6 +30,8 @@ class PortfolioUniverse:
         tickers: Optional[Iterable[str]] = None,
         start: Optional[str] = None,
         end: Optional[str] = None,
+        construction_start: Optional[str] = None,
+        construction_end: Optional[str] = None,
         loader: Optional[Callable[..., pd.DataFrame] | Any] = None,
         loader_kwargs: Optional[dict[str, Any]] = None,
         freq: Optional[str] = "B",
@@ -40,6 +42,8 @@ class PortfolioUniverse:
         self.tickers = list(tickers) if tickers is not None else None
         self.start = pd.Timestamp(start) if start else None
         self.end = pd.Timestamp(end) if end else None
+        self.construction_start = pd.Timestamp(construction_start) if construction_start else self.start
+        self.construction_end = pd.Timestamp(construction_end) if construction_end else self.end
         self.freq = freq
         self.loader = loader
         self.loader_kwargs = loader_kwargs or {}
@@ -151,6 +155,36 @@ class PortfolioUniverse:
             path = path / construction_name
         path.mkdir(parents=True, exist_ok=True)
         return path
+
+    def get_returns_window(
+        self,
+        start: str | pd.Timestamp | None = None,
+        end: str | pd.Timestamp | None = None,
+        *,
+        dropna: bool = True,
+    ) -> pd.DataFrame:
+        if self.returns is None:
+            raise RuntimeError("Primero prepara los datos para tener retornos disponibles.")
+
+        window = self.returns.copy()
+        if start is not None:
+            window = window.loc[window.index >= pd.Timestamp(start)]
+        if end is not None:
+            window = window.loc[window.index <= pd.Timestamp(end)]
+        if dropna:
+            window = window.dropna(axis=0, how="any")
+        if window.empty:
+            raise ValueError("No hay retornos disponibles en la ventana solicitada.")
+        return window
+
+    def set_construction_window(
+        self,
+        start: str | pd.Timestamp | None,
+        end: str | pd.Timestamp | None,
+    ) -> "PortfolioUniverse":
+        self.construction_start = pd.Timestamp(start) if start is not None else None
+        self.construction_end = pd.Timestamp(end) if end is not None else None
+        return self
 
     def save_market_data(self) -> None:
         self.create_output_dirs()
@@ -340,13 +374,22 @@ class PortfolioUniverse:
         return self
 
     def _build_construction_result(self, constructor, *, label: str | None = None, **kwargs) -> ConstructionResult:
-        construction_start = pd.Timestamp(kwargs.get("construction_start")) if kwargs.get("construction_start") is not None else self.start
-        construction_end = pd.Timestamp(kwargs.get("construction_end")) if kwargs.get("construction_end") is not None else self.end
+        construction_start = (
+            pd.Timestamp(kwargs.get("construction_start"))
+            if kwargs.get("construction_start") is not None
+            else self.construction_start
+        )
+        construction_end = (
+            pd.Timestamp(kwargs.get("construction_end"))
+            if kwargs.get("construction_end") is not None
+            else self.construction_end
+        )
+        construction_returns = self.get_returns_window(construction_start, construction_end)
 
         if hasattr(constructor, "build"):
             method_id = getattr(constructor, "method_id", type(constructor).__name__)
             name = label or self._next_label(method_id)
-            result = constructor.build(self, name=name, **kwargs)
+            result = constructor.build(self, name=name, returns=construction_returns, **kwargs)
             result = self._normalize_construction_result(result)
             if result.construction_start is None or result.construction_end is None:
                 return ConstructionResult(
@@ -368,12 +411,12 @@ class PortfolioUniverse:
         if not hasattr(constructor, "optimizar"):
             raise TypeError("El constructor debe implementar `build(...)` o `optimizar(...)`.")
 
-        weights, meta = constructor.optimizar(self.asset_returns, **kwargs)
+        weights, meta = constructor.optimizar(construction_returns, **kwargs)
         method_id = getattr(constructor, "method_id", type(constructor).__name__)
         display_name = getattr(constructor, "display_name", getattr(constructor, "nombre", method_id))
         name = label or self._next_label(method_id)
-        weights = weights.reindex(self.asset_returns.columns).fillna(0.0).sort_index()
-        metrics = self._make_basic_metrics(weights, ann_factor=kwargs.get("ann_factor"))
+        weights = weights.reindex(construction_returns.columns).fillna(0.0).sort_index()
+        metrics = self._make_basic_metrics(weights, returns=construction_returns, ann_factor=kwargs.get("ann_factor"))
         if meta:
             metrics.update({f"meta_{key}": value for key, value in meta.items()})
 
@@ -435,10 +478,17 @@ class PortfolioUniverse:
 
         return pd.DataFrame(rows).set_index("name").sort_index()
 
-    def _make_basic_metrics(self, weights: pd.Series, *, ann_factor: int | None = None) -> dict[str, float]:
-        weights = weights.reindex(self.asset_returns.columns).fillna(0.0)
-        mean_returns = self.asset_returns.mean()
-        covariance = self.asset_returns.cov()
+    def _make_basic_metrics(
+        self,
+        weights: pd.Series,
+        *,
+        returns: pd.DataFrame | None = None,
+        ann_factor: int | None = None,
+    ) -> dict[str, float]:
+        returns_frame = returns if returns is not None else self.asset_returns
+        weights = weights.reindex(returns_frame.columns).fillna(0.0)
+        mean_returns = returns_frame.mean()
+        covariance = returns_frame.cov()
 
         return {
             "n_selected": int((weights != 0).sum()),
@@ -447,8 +497,14 @@ class PortfolioUniverse:
             "sharpe_m": float(pm.sharpe_from_moments(mean_returns, covariance, weights, ann_factor=ann_factor)),
         }
 
-    def make_basic_metrics(self, weights: pd.Series, *, ann_factor: int | None = None) -> dict[str, float]:
-        return self._make_basic_metrics(weights, ann_factor=ann_factor)
+    def make_basic_metrics(
+        self,
+        weights: pd.Series,
+        *,
+        returns: pd.DataFrame | None = None,
+        ann_factor: int | None = None,
+    ) -> dict[str, float]:
+        return self._make_basic_metrics(weights, returns=returns, ann_factor=ann_factor)
 
     def _normalize_construction_result(self, result: ConstructionResult) -> ConstructionResult:
         weights = result.weights.reindex(self.asset_returns.columns).fillna(0.0).sort_index()
