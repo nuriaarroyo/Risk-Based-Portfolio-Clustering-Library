@@ -1,18 +1,18 @@
 {
   "n_selected": 4,
-  "expected_return": 0.5198248278752386,
-  "volatility": 0.28703867430804364,
-  "sharpe_m": 1.8109922961718186,
+  "expected_return": 0.5481921909028067,
+  "volatility": 0.2973843179414247,
+  "sharpe_m": 1.8433796196704066,
   "meta_hrp_n_clusters": 3,
   "meta_hrp_distance": "corr_distance",
   "meta_hrp_clustering": "hierarchical_clusters",
   "meta_hrp_clusters": [
     [
-      "MSFT",
+      "AAPL",
       "GOOG"
     ],
     [
-      "AAPL"
+      "MSFT"
     ],
     [
       "AMZN"
