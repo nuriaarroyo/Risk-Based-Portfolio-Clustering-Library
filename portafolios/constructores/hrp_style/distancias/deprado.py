@@ -7,7 +7,7 @@ from scipy.spatial.distance import pdist, squareform
 
 
 def de_prado_corr_distance(returns: pd.DataFrame) -> pd.DataFrame:
-    """
+    r"""
     Primer paso de López de Prado:
         d_ij = sqrt( 0.5 * (1 - corr_ij) )
 
@@ -21,7 +21,7 @@ def de_prado_corr_distance(returns: pd.DataFrame) -> pd.DataFrame:
 
 
 def de_prado_embedding_distance(returns: pd.DataFrame) -> pd.DataFrame:
-    """
+    r"""
     Distancia "completa" del ejemplo del paper:
 
     1) Construye D con d_ij = sqrt(0.5 * (1 - corr_ij))

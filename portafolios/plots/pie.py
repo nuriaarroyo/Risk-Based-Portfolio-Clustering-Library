@@ -23,7 +23,7 @@ def pastel_portfolio(
     Usa únicamente:
     - portfolio.asset_returns.columns  (universo de activos)
     - portfolio.weights                (pesos construidos)
-    - portfolio.info["constructor"]    (para el título, si existe)
+    - portfolio.info["constructor_display_name"] (para el título, si existe)
 
     Si `pesos` es None, usa `portfolio.weights`.
     Filtra pesos muy pequeños (min_weight).
@@ -149,7 +149,10 @@ def pastel_portfolio(
     )
 
     # --- título bonito usando info["constructor"] si existe ---
-    constructor_name = portfolio.info.get("constructor", "Portafolio")
+    constructor_name = portfolio.info.get(
+        "constructor_display_name",
+        portfolio.info.get("constructor", "Portfolio"),
+    )
     activos_excluidos = len(tickers) - len(tickers_filtrados)
 
     if activos_excluidos > 0:

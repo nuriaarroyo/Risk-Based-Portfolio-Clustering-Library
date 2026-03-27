@@ -24,7 +24,7 @@ def corr_heatmap_portfolio(
     - portfolio.correlation
     - portfolio.covariance
     - portfolio.asset_log_returns o asset_returns como respaldo
-    - portfolio.info["constructor"] para el título
+    - portfolio.info["constructor_display_name"] para el título
 
     Parámetros
     ----------
@@ -98,7 +98,10 @@ def corr_heatmap_portfolio(
         )
     )
 
-    constructor_name = portfolio.info.get("constructor", "Portafolio")
+    constructor_name = portfolio.info.get(
+        "constructor_display_name",
+        portfolio.info.get("constructor", "Portfolio"),
+    )
 
     fig.update_layout(
         title=f"Heatmap de {title_kind} — {constructor_name}",

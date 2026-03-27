@@ -23,7 +23,7 @@ def bubbleplot_portfolio(
     - portfolio.asset_returns (retornos simples diarios)
     - portfolio.tickers
     - portfolio.weights
-    - portfolio.info["constructor"] para el título
+    - portfolio.info["constructor_display_name"] para el título
 
     El tamaño de burbuja es el peso del portafolio.
     """
@@ -110,7 +110,10 @@ def bubbleplot_portfolio(
         name="Activos"
     ))
 
-    constructor = portfolio.info.get("constructor", "Portafolio")
+    constructor = portfolio.info.get(
+        "constructor_display_name",
+        portfolio.info.get("constructor", "Portfolio"),
+    )
 
     fig.update_layout(
         title=f"Bubble Plot: ER vs VOL — {constructor}",

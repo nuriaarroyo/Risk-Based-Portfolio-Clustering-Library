@@ -15,7 +15,8 @@ MarketData = StandardizedData
 @dataclass(slots=True)
 class ConstructionResult:
     name: str
-    method: str
+    method_id: str
+    display_name: str
     weights: pd.Series
     selected_assets: list[str]
     params: dict[str, Any]
@@ -25,6 +26,10 @@ class ConstructionResult:
     backtest_result: Optional[Any] = None
     mc_result: Optional[Any] = None
     notes: Optional[str] = None
+
+    @property
+    def method(self) -> str:
+        return self.method_id
 
 
 @dataclass(slots=True)

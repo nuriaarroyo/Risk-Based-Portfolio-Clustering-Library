@@ -49,9 +49,11 @@ class HRPStyle:
         inner: Any | None = None,
         outer: Any | None = None,
         n_clusters: int = 3,
-        nombre: str = "HRP-style",
+        display_name: str = "HRP Style",
+        nombre: str | None = None,
     ) -> None:
-        self.nombre = nombre
+        self.method_id = "hrp_style"
+        self.display_name = nombre or display_name
         self.n_clusters = n_clusters
 
         
@@ -116,6 +118,10 @@ class HRPStyle:
             w = pd.Series(w, index=asset_returns.columns, dtype=float)
 
         return w, meta
+
+    @property
+    def nombre(self) -> str:
+        return self.display_name
 
     def optimizar(
         self,

@@ -205,6 +205,8 @@ class PortfolioUniverse:
         summary_payload = {
             "name": construction.name,
             "method": construction.method,
+            "method_id": construction.method_id,
+            "display_name": construction.display_name,
             "notes": construction.notes,
         }
         with (construction_dir / "summary.json").open("w", encoding="utf-8") as f:
@@ -342,13 +344,15 @@ class PortfolioUniverse:
         construction_end = pd.Timestamp(kwargs.get("construction_end")) if kwargs.get("construction_end") is not None else self.end
 
         if hasattr(constructor, "build"):
-            name = label or self._next_label(getattr(constructor, "nombre", type(constructor).__name__))
+            method_id = getattr(constructor, "method_id", type(constructor).__name__)
+            name = label or self._next_label(method_id)
             result = constructor.build(self, name=name, **kwargs)
             result = self._normalize_construction_result(result)
             if result.construction_start is None or result.construction_end is None:
                 return ConstructionResult(
                     name=result.name,
-                    method=result.method,
+                    method_id=result.method_id,
+                    display_name=result.display_name,
                     weights=result.weights,
                     selected_assets=result.selected_assets,
                     params=result.params,
@@ -365,8 +369,9 @@ class PortfolioUniverse:
             raise TypeError("El constructor debe implementar `build(...)` o `optimizar(...)`.")
 
         weights, meta = constructor.optimizar(self.asset_returns, **kwargs)
-        method = getattr(constructor, "nombre", type(constructor).__name__)
-        name = label or self._next_label(method)
+        method_id = getattr(constructor, "method_id", type(constructor).__name__)
+        display_name = getattr(constructor, "display_name", getattr(constructor, "nombre", method_id))
+        name = label or self._next_label(method_id)
         weights = weights.reindex(self.asset_returns.columns).fillna(0.0).sort_index()
         metrics = self._make_basic_metrics(weights, ann_factor=kwargs.get("ann_factor"))
         if meta:
@@ -374,7 +379,8 @@ class PortfolioUniverse:
 
         return ConstructionResult(
             name=name,
-            method=method,
+            method_id=method_id,
+            display_name=display_name,
             weights=weights,
             selected_assets=[asset for asset in weights.index if weights.loc[asset] != 0],
             params=dict(kwargs),
@@ -400,6 +406,7 @@ class PortfolioUniverse:
                 {
                     "active_construction": normalized.name,
                     "constructor": normalized.method,
+                    "constructor_display_name": normalized.display_name,
                 }
             )
 
@@ -415,7 +422,11 @@ class PortfolioUniverse:
     def compare_insample_metrics(self) -> pd.DataFrame:
         rows: list[dict[str, Any]] = []
         for name, result in self.constructions.items():
-            row = {"name": name, "method": result.method}
+            row = {
+                "name": name,
+                "method": result.method,
+                "display_name": result.display_name,
+            }
             row.update(result.metrics_insample)
             rows.append(row)
 
@@ -444,7 +455,8 @@ class PortfolioUniverse:
         selected = [asset for asset in weights.index if weights.loc[asset] != 0]
         return ConstructionResult(
             name=result.name,
-            method=result.method,
+            method_id=result.method_id,
+            display_name=result.display_name,
             weights=weights,
             selected_assets=selected,
             params=dict(result.params),
@@ -531,12 +543,36 @@ class PortfolioUniverse:
 
         raise ValueError(f"KPI no reconocido: {nombre}")
 
+    def get_metric(self, metric_name: str, **kwargs):
+        return self.kpi(metric_name, **kwargs)
+
+    def get_basic_metrics(self, *, ann_factor: int | None = None, rf_per_period: float = 0.0) -> dict:
+        return self.kpis_basicos(ann_factor=ann_factor, rf_per_period=rf_per_period)
+
     def kpis_basicos(self, *, ann_factor: int | None = None, rf_per_period: float = 0.0) -> dict:
         return {
             "expected_return": self.kpi("exp_return", ann_factor=ann_factor),
             "volatility": self.kpi("vol", ann_factor=ann_factor),
             "sharpe_m": self.kpi("sharpe_m", ann_factor=ann_factor, rf_per_period=rf_per_period),
         }
+
+    def prepare_data(self) -> "PortfolioUniverse":
+        return self.preparar_datos()
+
+    def build(self, constructor, label: str | None = None, set_active: bool = True, **kwargs) -> "PortfolioUniverse":
+        return self.construir(constructor, label=label, set_active=set_active, **kwargs)
+
+    def plot_pie(self, weights=None, min_weight: float = 1e-3) -> None:
+        return self.pastel(pesos=weights, min_weight=min_weight)
+
+    def plot_bar(self, weights=None, min_weight: float = 0.0) -> None:
+        return self.barras(pesos=weights, min_weight=min_weight)
+
+    def plot_bubble(self, weights=None, min_weight: float = 0.0):
+        return self.bubbleplot(pesos=weights, min_weight=min_weight)
+
+    def plot_correlation_heatmap(self, kind: str = "correlation", round_decimals: int = 2) -> None:
+        return self.corr_heatmap(kind=kind, round_decimals=round_decimals)
 
     def pastel(self, pesos=None, min_weight: float = 1e-3) -> None:
         return pie.pastel_portfolio(self, pesos=pesos, min_weight=min_weight)

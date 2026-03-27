@@ -8,7 +8,8 @@ from .base import BaseConstructor
 
 
 class EqualWeightConstructor(BaseConstructor):
-    nombre = "equal_weight"
+    method_id = "equal_weight"
+    display_name = "Equal Weight"
 
     def optimizar(self, returns: pd.DataFrame, **kwargs: Any) -> tuple[pd.Series, dict[str, Any]]:
         if returns is None or returns.empty:

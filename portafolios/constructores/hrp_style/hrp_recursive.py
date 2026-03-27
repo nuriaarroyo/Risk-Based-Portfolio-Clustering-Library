@@ -37,10 +37,12 @@ class HRPRecursive:
         *,
         distance: str | Callable[[pd.DataFrame], pd.DataFrame] = "corr",
         clustering: str | Callable[[pd.DataFrame, int], List[List[str]]] = "hierarchical",
-        nombre: str = "HRP-recursive",
+        display_name: str = "HRP Recursive",
+        nombre: str | None = None,
         min_var: float = 1e-8,
     ) -> None:
-        self.nombre = nombre
+        self.method_id = "hrp_recursive"
+        self.display_name = nombre or display_name
         self.min_var = float(min_var)
 
         # ----- resolver distancia -----
@@ -107,6 +109,10 @@ class HRPRecursive:
         }
 
         return w, meta
+
+    @property
+    def nombre(self) -> str:
+        return self.display_name
 
     # -------------------- núcleo recursivo --------------------
 

@@ -19,7 +19,8 @@ class Markowitz(BaseConstructor):
     según el parámetro `ret_kind`.
     """
 
-    nombre = "markowitz_max_sharpe"
+    method_id = "markowitz_max_sharpe"
+    display_name = "Markowitz Max Sharpe"
 
     def __init__(self, rf_per_period: float = 0.0):
         self.rf_per_period = rf_per_period

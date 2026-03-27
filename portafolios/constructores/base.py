@@ -9,7 +9,12 @@ from ..core.types import ConstructionResult
 
 
 class BaseConstructor(ABC):
-    nombre = "base_constructor"
+    method_id = "base_constructor"
+    display_name = "Base Constructor"
+
+    @property
+    def nombre(self) -> str:
+        return self.display_name
 
     @abstractmethod
     def optimizar(self, returns: pd.DataFrame, **kwargs) -> tuple[pd.Series, dict[str, Any]]:
@@ -32,7 +37,8 @@ class BaseConstructor(ABC):
 
         return ConstructionResult(
             name=name,
-            method=self.nombre,
+            method_id=self.method_id,
+            display_name=self.display_name,
             weights=weights,
             selected_assets=[asset for asset in weights.index if weights.loc[asset] != 0],
             params=dict(kwargs),

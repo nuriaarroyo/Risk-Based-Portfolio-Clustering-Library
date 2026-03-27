@@ -43,14 +43,16 @@ class NaiveRiskParity(BaseConstructor):
         self,
         *,
         min_vol: float = 1e-8,
-        nombre: str = "Naive Risk Parity (1/sigma)",
+        display_name: str = "Naive Risk Parity (1/sigma)",
+        nombre: str | None = None,
     ) -> None:
         """
         min_vol: piso para la volatilidad, para evitar divisiones por cero.
-        nombre: etiqueta amigable para guardar en p.info["constructor"].
+        display_name: etiqueta amigable para tablas, plots y reportes.
         """
         self.min_vol = float(min_vol)
-        self.nombre = nombre
+        self.method_id = "naive_risk_parity"
+        self.display_name = nombre or display_name
 
     def optimizar(
         self,

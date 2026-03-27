@@ -23,7 +23,7 @@ def barras_portfolio(
     Usa:
     - portfolio.asset_returns.columns  como universo de activos
     - portfolio.weights                como pesos por defecto
-    - portfolio.info["constructor"]    para el título (si existe)
+    - portfolio.info["constructor_display_name"] para el título (si existe)
 
     - Si `pesos` es None, usa `portfolio.weights`.
     - Alinea a asset_returns.columns; si faltan pesos en una Series, rellena con 0.
@@ -100,7 +100,10 @@ def barras_portfolio(
         ]
     )
 
-    constructor_name = portfolio.info.get("constructor", "Portafolio")
+    constructor_name = portfolio.info.get(
+        "constructor_display_name",
+        portfolio.info.get("constructor", "Portfolio"),
+    )
 
     fig.update_layout(
         title=f"Distribución de Pesos del {constructor_name}",
