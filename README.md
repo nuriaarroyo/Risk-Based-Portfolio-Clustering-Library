@@ -1,19 +1,30 @@
-# Portfolio Optimization & Hierarchical Risk Parity Research
+# Portfolio Optimization Research Library
 
-This repository contains an Honors Thesis library for portfolio construction and evaluation, with a strong focus on Hierarchical Risk Parity (HRP), classical Markowitz optimization, and risk-based allocation workflows.
+Modular Python library developed for an Honors Thesis in Actuarial Science, focused on comparative portfolio construction with a strong emphasis on Hierarchical Risk Parity (HRP), Markowitz optimization, and risk-based allocation workflows.
 
-## What The Library Covers
+## Why This Project
 
-- Shared market-data handling through a `Universe`
-- Portfolio construction with:
+This project was built to move beyond notebook-only experimentation into a reusable research framework. It supports a full workflow for:
+
+- loading and standardizing market data
+- constructing portfolios with multiple allocation methods
+- separating in-sample construction from out-of-sample backtesting
+- running Monte Carlo simulations
+- exporting plots and structured results for analysis
+
+## Core Features
+
+- Shared `Universe` object for data, constructions, metadata, and exports
+- Portfolio constructors:
   `EqualWeightConstructor`, `Markowitz`, `NaiveRiskParity`, `HRPStyle`, `HRPRecursive`
-- Historical backtesting with `Backtester`
+- Out-of-sample backtesting with `Backtester`
 - Monte Carlo simulation with `MonteCarloEngine`
-- Plot export and reporting with `PortfolioVisualizer`
+- Plotly-based reporting with `PortfolioVisualizer`
+- Reproducible notebook demos and validation workflows
 
 ## Public API
 
-The main workflow is available from a single import surface:
+The main workflow is exposed from a single import surface:
 
 ```python
 from portafolios import (
@@ -56,80 +67,34 @@ universe = Universe(
     loader_kwargs={"path": csv_path, "prefer_adj_close": True},
     tickers=["AAPL", "MSFT", "AMZN", "GOOG"],
     start="2020-01-01",
-    end="2020-12-31",
+    end="2024-12-31",
+    construction_start="2020-01-01",
+    construction_end="2020-06-30",
 ).prepare_data()
 
 universe.build(EqualWeightConstructor())
-universe.build(Markowitz())
+universe.build(Markowitz(), ret_kind="simple", allow_short=False)
 universe.build(NaiveRiskParity())
 universe.build(HRPStyle())
 
-Backtester.run_all(
-    universe,
-    start_date="2021-01-01",
-    end_date="2021-12-31",
-)
-
-MonteCarloEngine.run_all(
-    universe,
-    horizon=252,
-    n_simulations=500,
-    seed=42,
-)
+Backtester.run_all(universe)
+MonteCarloEngine.run_all(universe, horizon=252, n_simulations=500, seed=42)
 
 visualizer = PortfolioVisualizer(universe)
 visualizer.save_everything()
 ```
 
-## Naming Model
+## Workflow Model
 
-Constructors now distinguish between:
+The library supports a two-stage research workflow:
 
-- `method_id`: stable machine-friendly identifier used for default construction names and exports
-- `display_name`: human-friendly label used in plots and summaries
+- `start` / `end` define the full market-data horizon loaded into the universe
+- `construction_start` / `construction_end` define the shared in-sample training window for all constructors
+- `Backtester.run()` defaults to the first available date after `construction_end` through the last available return in the universe
 
-Example:
+This keeps portfolio comparisons fair while preserving a clean out-of-sample evaluation path.
 
-- `method_id = "naive_risk_parity"`
-- `display_name = "Naive Risk Parity (1/sigma)"`
-
-This keeps output folders stable while preserving readable titles.
-
-## Output Convention
-
-By default, runs are saved under:
-
-```text
-outputs/runs/<universe_name>/
-├─ data/
-├─ constructions/
-├─ backtests/
-├─ monte_carlo/
-└─ plots/
-```
-
-Default construction folders use stable names such as:
-
-```text
-outputs/runs/thesis_demo/constructions/naive_risk_parity/
-outputs/runs/thesis_demo/constructions/hrp_style/
-```
-
-If you pass a custom `label=...` when building, that label becomes the saved construction name.
-
-## In-Sample vs Out-of-Sample
-
-You can load a full universe horizon and then separate:
-
-- construction window with `construction_start` / `construction_end`
-- backtest window with `Backtester.run(...)`
-
-If you omit `start_date` and `end_date` in `Backtester.run()`, the backtest now defaults to:
-
-- start: first available return strictly after `construction_end`
-- end: last available return in the universe
-
-You can also summarize or plot a custom backtest subwindow:
+You can also inspect any subwindow of the backtest series:
 
 ```python
 bt = Backtester(universe, "hrp_style")
@@ -148,22 +113,45 @@ fig = PortfolioVisualizer(universe).plot_backtest(
 )
 ```
 
+## Output Structure
+
+Runs are saved under:
+
+```text
+outputs/runs/<universe_name>/
+|- data/
+|- constructions/
+|- backtests/
+|- monte_carlo/
+`- plots/
+```
+
+Constructors use:
+
+- `method_id` for stable folder-safe identifiers such as `naive_risk_parity`
+- `display_name` for human-readable plot titles and summaries
+
 ## Repository Structure
 
 ```text
 honores_actuaria/
-├─ portafolios/          # reusable library code
-├─ legacy/               # archived pre-refactor code
-├─ notebooks/
-│  ├─ exploration/       # scratch work and prototyping
-│  ├─ demos/             # polished walkthroughs and examples
-│  └─ validation/        # notebook-based checks
-├─ data/
-│  └─ processed/         # cleaned local datasets
-├─ outputs/
-│  ├─ runs/              # main exported runs by universe/demo
-│  ├─ test_runs/         # generated outputs from test/demo runs
-│  ├─ plots/             # loose exported plots
-│  └─ data_exports/      # generated csv/html artifacts
-└─ README.md
+|- portafolios/        # active library code
+|- legacy/             # archived pre-refactor code
+|- notebooks/
+|  |- demos/           # end-to-end walkthroughs
+|  |- validation/      # notebook-based checks
+|  `- exploration/     # scratch / smoke notebooks
+|- data/
+|  |- yf_snapshot.csv
+|  `- processed/
+|- outputs/
+|  |- runs/
+|  |- test_runs/
+|  |- plots/
+|  `- data_exports/
+`- README.md
 ```
+
+## Current Status
+
+This is an active thesis project, not a finished production package. The core research workflow is implemented and runnable, and the repository includes a working library structure, executable notebooks, and reproducible exported results. Packaging and final polish are still in progress.
