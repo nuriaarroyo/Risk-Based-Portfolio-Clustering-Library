@@ -1,0 +1,13 @@
+{
+  "n_selected": 11,
+  "expected_return": 0.0002886074858896557,
+  "volatility": 0.00172256188791154,
+  "sharpe_m": 0.16754549599350985,
+  "meta_n_assets": 13,
+  "meta_success": true,
+  "meta_message": "Optimization terminated successfully",
+  "meta_rf_per_period": 0.0,
+  "meta_objective": 0.16754549599350985,
+  "meta_allow_short": false,
+  "meta_ret_kind_used": "simple"
+}

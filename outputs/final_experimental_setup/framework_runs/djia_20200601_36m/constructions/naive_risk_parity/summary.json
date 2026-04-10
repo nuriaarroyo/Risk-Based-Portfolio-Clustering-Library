@@ -1,0 +1,7 @@
+{
+  "name": "naive_risk_parity",
+  "method": "naive_risk_parity",
+  "method_id": "naive_risk_parity",
+  "display_name": "Naive Risk Parity (1/sigma)",
+  "notes": null
+}

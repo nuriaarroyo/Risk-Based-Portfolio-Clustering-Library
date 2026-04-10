@@ -15,8 +15,8 @@ class Markowitz(BaseConstructor):
     Constructor Markowitz que maximiza el Sharpe ratio histórico.
 
     Nota: PortfolioUniverse.construir le pasa `asset_returns` (retornos simples).
-    Aquí decidimos SI LOS USAMOS tal cual o los convertimos a log,
-    según el parámetro `ret_kind`.
+    Por defecto se usan tal cual para mantener consistencia con el resto de la
+    librería. Opcionalmente pueden convertirse a log con `ret_kind="log"`.
     """
 
     method_id = "markowitz_max_sharpe"
@@ -29,7 +29,7 @@ class Markowitz(BaseConstructor):
         self,
         returns: pd.DataFrame,
         *,
-        ret_kind: str = "log",   # <- aquí pedimos el tipo de retorno a usar
+        ret_kind: str = "simple",
         allow_short: bool = False,
         bounds: Any = None,
         **kwargs,

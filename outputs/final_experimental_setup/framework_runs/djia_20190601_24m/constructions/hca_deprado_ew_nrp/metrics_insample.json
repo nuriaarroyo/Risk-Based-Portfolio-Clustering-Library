@@ -1,0 +1,61 @@
+{
+  "n_selected": 30,
+  "expected_return": 0.000581288093154435,
+  "volatility": 0.007659078547163534,
+  "sharpe_m": 0.0758953037986155,
+  "meta_hrp_n_clusters": 5,
+  "meta_hrp_distance": "de_prado_embedding_distance",
+  "meta_hrp_clustering": "hierarchical_clusters",
+  "meta_hrp_clusters": [
+    [
+      "KO",
+      "PG",
+      "VZ"
+    ],
+    [
+      "MCD",
+      "WMT"
+    ],
+    [
+      "AAPL",
+      "AMZN",
+      "AXP",
+      "BA",
+      "CAT",
+      "CRM",
+      "CSCO",
+      "CVX",
+      "GS",
+      "HD",
+      "HON",
+      "JPM",
+      "MMM",
+      "MSFT",
+      "NVDA",
+      "SHW",
+      "TRV",
+      "V"
+    ],
+    [
+      "AMGN",
+      "IBM",
+      "JNJ",
+      "MRK",
+      "UNH"
+    ],
+    [
+      "DIS",
+      "NKE"
+    ]
+  ],
+  "meta_hrp_inner_n_assets": 2,
+  "meta_hrp_outer_nrp_method": "inverse_vol",
+  "meta_hrp_outer_nrp_min_vol": 1e-08,
+  "meta_hrp_outer_nrp_sigma": {
+    "C0": 0.008385117978610428,
+    "C1": 0.009865878765276835,
+    "C2": 0.011016716831267767,
+    "C3": 0.009361474784199679,
+    "C4": 0.012119120893514102
+  }
+}

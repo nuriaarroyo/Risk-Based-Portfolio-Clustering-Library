@@ -40,6 +40,7 @@ class BacktestResult:
     portfolio_returns: pd.Series
     cumulative_returns: pd.Series
     summary_metrics: dict[str, Any]
+    drawdown_series: Optional[pd.Series] = None
     notes: Optional[str] = None
 
 
@@ -51,4 +52,6 @@ class MonteCarloResult:
     simulated_paths: pd.DataFrame | np.ndarray
     terminal_values: np.ndarray
     summary_metrics: dict[str, Any]
+    estimation_start: Optional[pd.Timestamp] = None
+    estimation_end: Optional[pd.Timestamp] = None
     notes: Optional[str] = None

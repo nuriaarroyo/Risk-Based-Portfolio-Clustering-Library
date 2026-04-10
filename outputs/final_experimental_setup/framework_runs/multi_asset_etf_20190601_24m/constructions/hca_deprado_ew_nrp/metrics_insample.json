@@ -1,0 +1,38 @@
+{
+  "n_selected": 13,
+  "expected_return": 0.00015846693368492615,
+  "volatility": 0.0032027404705720994,
+  "sharpe_m": 0.04947854349766265,
+  "meta_hrp_n_clusters": 3,
+  "meta_hrp_distance": "de_prado_embedding_distance",
+  "meta_hrp_clustering": "hierarchical_clusters",
+  "meta_hrp_clusters": [
+    [
+      "TLT",
+      "IEF",
+      "LQD",
+      "TIP",
+      "GLD"
+    ],
+    [
+      "SPY",
+      "QQQ",
+      "IWM",
+      "EFA",
+      "EEM",
+      "HYG",
+      "VNQ"
+    ],
+    [
+      "DBC"
+    ]
+  ],
+  "meta_hrp_inner_n_assets": 1,
+  "meta_hrp_outer_nrp_method": "inverse_vol",
+  "meta_hrp_outer_nrp_min_vol": 1e-08,
+  "meta_hrp_outer_nrp_sigma": {
+    "C0": 0.0030689821837781833,
+    "C1": 0.007481976247021509,
+    "C2": 0.008444748973384668
+  }
+}

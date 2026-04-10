@@ -1,0 +1,7 @@
+{
+  "construction_name": "hrp_recursive",
+  "horizon": 252,
+  "n_simulations": 2000,
+  "estimation_start": "2017-06-01 00:00:00",
+  "estimation_end": "2019-05-31 00:00:00"
+}

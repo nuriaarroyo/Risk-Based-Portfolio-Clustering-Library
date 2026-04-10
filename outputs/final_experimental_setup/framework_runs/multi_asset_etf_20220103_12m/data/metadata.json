@@ -1,0 +1,42 @@
+{
+  "source": "yfinance",
+  "universe_id": "multi_asset_etf",
+  "display_name": "Multi-Asset ETF",
+  "requested_tickers": [
+    "SPY",
+    "QQQ",
+    "IWM",
+    "EFA",
+    "EEM",
+    "TLT",
+    "IEF",
+    "LQD",
+    "HYG",
+    "TIP",
+    "GLD",
+    "DBC",
+    "VNQ"
+  ],
+  "available_tickers": [
+    "SPY",
+    "QQQ",
+    "IWM",
+    "EFA",
+    "EEM",
+    "TLT",
+    "IEF",
+    "LQD",
+    "HYG",
+    "TIP",
+    "GLD",
+    "DBC",
+    "VNQ"
+  ],
+  "construction_date": "2022-01-03",
+  "estimation_months": 12,
+  "universe_name": "multi_asset_etf_20220103_12m",
+  "output_dir": "C:\\Users\\narro\\Desktop\\semestre\\honores_actuaria\\outputs\\final_experimental_setup\\framework_runs\\multi_asset_etf_20220103_12m",
+  "frequency": "B",
+  "start": "2020-12-28 00:00:00",
+  "end": "2023-01-09 00:00:00"
+}

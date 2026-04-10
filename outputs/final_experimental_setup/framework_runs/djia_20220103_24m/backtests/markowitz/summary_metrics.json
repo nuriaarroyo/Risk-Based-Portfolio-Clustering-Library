@@ -1,0 +1,8 @@
+{
+  "n_periods": 252,
+  "total_return": -0.4601820367287305,
+  "annualized_return": -0.4601820367287305,
+  "annualized_volatility": 0.5448393527507454,
+  "sharpe_ratio": -0.844619674414847,
+  "max_drawdown": -0.5647394128976047
+}

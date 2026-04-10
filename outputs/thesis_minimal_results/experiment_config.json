@@ -1,0 +1,100 @@
+{
+  "data_path": "C:\\Users\\narro\\Desktop\\semestre\\honores_actuaria\\data\\processed\\data_clean_stock_data.csv",
+  "data_format": "processed_ohlcv",
+  "full_start": "2017-01-01",
+  "full_end": "2025-12-31",
+  "construction_start": "2017-01-01",
+  "construction_end": "2019-12-31",
+  "backtest_start": "2021-01-01",
+  "backtest_end": "2025-12-31",
+  "methods": [
+    "equal_weight",
+    "markowitz",
+    "naive_risk_parity",
+    "hrp_style_deprado_nrp",
+    "hrp_style_corr_ew_nrp",
+    "hrp_recursive"
+  ],
+  "n_assets": 49,
+  "tickers": [
+    "AAPL",
+    "ABBV",
+    "ABT",
+    "ACN",
+    "ADBE",
+    "AMD",
+    "AMGN",
+    "AMZN",
+    "AVGO",
+    "BAC",
+    "BMY",
+    "COST",
+    "CRM",
+    "CSCO",
+    "CVX",
+    "DHR",
+    "DIS",
+    "GOOG",
+    "HD",
+    "HON",
+    "INTC",
+    "JPM",
+    "KO",
+    "LIN",
+    "LLY",
+    "MA",
+    "MCD",
+    "META",
+    "MRK",
+    "MSFT",
+    "NEE",
+    "NFLX",
+    "NKE",
+    "NVDA",
+    "ORCL",
+    "PEP",
+    "PFE",
+    "PG",
+    "PM",
+    "TMO",
+    "TSLA",
+    "TXN",
+    "UNH",
+    "UPS",
+    "V",
+    "VZ",
+    "WFC",
+    "WMT",
+    "XOM"
+  ],
+  "ann_factor": 252,
+  "mc_horizon": 1005,
+  "mc_simulations": 2000,
+  "mc_seed": 42,
+  "mc_estimation_windows": {
+    "equal_weight": {
+      "estimation_start": "2018-02-02 00:00:00",
+      "estimation_end": "2019-12-31 00:00:00"
+    },
+    "markowitz": {
+      "estimation_start": "2018-02-02 00:00:00",
+      "estimation_end": "2019-12-31 00:00:00"
+    },
+    "naive_risk_parity": {
+      "estimation_start": "2018-02-02 00:00:00",
+      "estimation_end": "2019-12-31 00:00:00"
+    },
+    "hrp_style_deprado_nrp": {
+      "estimation_start": "2018-02-02 00:00:00",
+      "estimation_end": "2019-12-31 00:00:00"
+    },
+    "hrp_style_corr_ew_nrp": {
+      "estimation_start": "2018-02-02 00:00:00",
+      "estimation_end": "2019-12-31 00:00:00"
+    },
+    "hrp_recursive": {
+      "estimation_start": "2018-02-02 00:00:00",
+      "estimation_end": "2019-12-31 00:00:00"
+    }
+  }
+}

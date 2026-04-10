@@ -1,0 +1,9 @@
+{
+  "mean_terminal_value": 1.1069965671903947,
+  "median_terminal_value": 1.0954830334740377,
+  "std_terminal_value": 0.1931226854076864,
+  "min_terminal_value": 0.503416491724225,
+  "max_terminal_value": 1.8391481020673295,
+  "prob_loss": 0.3005,
+  "mean_terminal_return": 0.10699656719039473
+}

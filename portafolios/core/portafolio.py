@@ -71,7 +71,9 @@ class PortfolioUniverse:
         self.asset_mean_ret = None
         self.asset_mean_lr = None
         self.covariance = None
+        self.covariance_lr = None
         self.correlation = None
+        self.correlation_lr = None
 
         self.weights: pd.Series | None = None
         self.constructions: dict[str, ConstructionResult] = {}
@@ -104,8 +106,13 @@ class PortfolioUniverse:
         self.asset_vol_lr = am.volatility(self.asset_log_returns)
         self.asset_mean_ret = am.mean_return(self.asset_returns)
         self.asset_mean_lr = am.mean_return(self.asset_log_returns)
-        self.covariance = am.covariance_matrix(self.asset_log_returns)
-        self.correlation = am.correlation_matrix(self.asset_log_returns)
+        # Core portfolio moments use simple returns across the library.
+        self.covariance = am.covariance_matrix(self.asset_returns)
+        self.correlation = am.correlation_matrix(self.asset_returns)
+
+        # Keep log-return diagnostics available as explicit alternate views.
+        self.covariance_lr = am.covariance_matrix(self.asset_log_returns)
+        self.correlation_lr = am.correlation_matrix(self.asset_log_returns)
 
         self.metadata.clear()
         self.metadata.update(data.metadata)
@@ -264,6 +271,8 @@ class PortfolioUniverse:
 
         backtest.portfolio_returns.to_csv(backtest_dir / "portfolio_returns.csv", header=["return"])
         backtest.cumulative_returns.to_csv(backtest_dir / "cumulative_returns.csv", header=["cumulative_return"])
+        if backtest.drawdown_series is not None:
+            backtest.drawdown_series.to_csv(backtest_dir / "drawdown_series.csv", header=["drawdown"])
 
         with (backtest_dir / "summary_metrics.json").open("w", encoding="utf-8") as f:
             json.dump(backtest.summary_metrics or {}, f, indent=2, default=str)
@@ -315,6 +324,8 @@ class PortfolioUniverse:
             "construction_name": mc_result.construction_name,
             "horizon": mc_result.horizon,
             "n_simulations": mc_result.n_simulations,
+            "estimation_start": str(mc_result.estimation_start) if mc_result.estimation_start is not None else None,
+            "estimation_end": str(mc_result.estimation_end) if mc_result.estimation_end is not None else None,
         }
         with (mc_dir / "simulation_config.json").open("w", encoding="utf-8") as f:
             json.dump(config_payload, f, indent=2, default=str)

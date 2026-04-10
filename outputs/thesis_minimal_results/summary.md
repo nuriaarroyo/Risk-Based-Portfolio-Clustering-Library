@@ -1,0 +1,8 @@
+- Highest annualized return: equal_weight.
+- Best Sharpe ratio: equal_weight.
+- Most stable by volatility: hrp_recursive.
+- Most stable by max drawdown: hrp_recursive.
+- Most concentrated by Herfindahl index: markowitz.
+- Most diversified by Herfindahl index: equal_weight.
+- Lowest Monte Carlo probability of loss: markowitz.
+- Main trade-off: return-seeking methods may improve upside but can become more concentrated and estimation-sensitive; diversified and risk-based methods are usually easier to defend as stable fixed-weight allocations.

@@ -33,9 +33,10 @@ class MonteCarloEngine:
         if n_simulations <= 0:
             raise ValueError("`n_simulations` debe ser positivo.")
 
-        weights = self.construction.weights.reindex(self.universe.returns.columns).fillna(0.0).values
-        mean_vector = self.universe.returns.mean().values
-        cov_matrix = self.universe.returns.cov().values
+        estimation_returns = self._estimation_returns()
+        weights = self.construction.weights.reindex(estimation_returns.columns).fillna(0.0).values
+        mean_vector = estimation_returns.mean().values
+        cov_matrix = estimation_returns.cov().values
 
         simulated_asset_returns = self.rng.multivariate_normal(
             mean=mean_vector,
@@ -58,6 +59,8 @@ class MonteCarloEngine:
             simulated_paths=simulated_paths,
             terminal_values=terminal_values,
             summary_metrics=self._summary_metrics(terminal_values),
+            estimation_start=pd.Timestamp(estimation_returns.index.min()),
+            estimation_end=pd.Timestamp(estimation_returns.index.max()),
             notes=notes,
         )
         return result
@@ -120,3 +123,8 @@ class MonteCarloEngine:
             "prob_loss": float(np.mean(terminal_values < 1.0)),
             "mean_terminal_return": float(np.mean(terminal_returns)),
         }
+
+    def _estimation_returns(self) -> pd.DataFrame:
+        start = self.construction.construction_start
+        end = self.construction.construction_end
+        return self.universe.get_returns_window(start, end)

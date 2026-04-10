@@ -1,0 +1,7 @@
+{
+  "n_selected": 30,
+  "expected_return": 0.0007213196788388247,
+  "volatility": 0.008137124497126598,
+  "sharpe_m": 0.08864552571286563,
+  "meta_n_assets": 30
+}
