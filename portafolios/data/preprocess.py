@@ -14,6 +14,7 @@ def select_close_prices(
     prefer_adj_close: bool = True,
     freq: Optional[str] = None,
     fill_missing: bool = True,
+    max_missing_ratio: float = 0.05,
 ) -> pd.DataFrame:
     """
     Normaliza un DataFrame estilo yfinance a una matriz de precios de cierre.
@@ -47,7 +48,16 @@ def select_close_prices(
     if end:
         prices = prices[prices.index <= pd.to_datetime(end)]
 
+    if not 0.0 <= max_missing_ratio <= 1.0:
+        raise ValueError("`max_missing_ratio` debe estar entre 0 y 1.")
+
+    if not prices.empty:
+        missing_ratio = prices.isna().mean(axis=0)
+        prices = prices.loc[:, missing_ratio <= max_missing_ratio]
+
     if fill_missing:
+        # Fill forward first to avoid using future values when a past value exists.
+        # Backward fill only resolves leading gaps that ffill cannot cover.
         prices = prices.ffill().bfill()
 
     prices = prices.dropna(axis=1, how="all")

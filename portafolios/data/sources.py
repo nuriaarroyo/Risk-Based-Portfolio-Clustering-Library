@@ -20,6 +20,7 @@ class CSVLoader(BaseDataLoader):
         end: Optional[str] = None,
         prefer_adj_close: bool = True,
         freq: Optional[str] = None,
+        max_missing_ratio: float = 0.05,
     ) -> None:
         self.path = Path(path)
         self.tickers = list(tickers) if tickers is not None else None
@@ -27,6 +28,7 @@ class CSVLoader(BaseDataLoader):
         self.end = end
         self.prefer_adj_close = prefer_adj_close
         self.freq = freq
+        self.max_missing_ratio = max_missing_ratio
 
     def load_prices(self) -> pd.DataFrame:
         return local_loader(
@@ -36,6 +38,7 @@ class CSVLoader(BaseDataLoader):
             end=self.end,
             prefer_adj_close=self.prefer_adj_close,
             freq=self.freq,
+            max_missing_ratio=self.max_missing_ratio,
         )
 
     def _build_metadata(self, prices: pd.DataFrame) -> dict[str, object]:
@@ -59,6 +62,7 @@ class YFinanceLoader(BaseDataLoader):
         end: Optional[str] = None,
         prefer_adj_close: bool = True,
         freq: Optional[str] = None,
+        max_missing_ratio: float = 0.05,
         interval: str = "1d",
         auto_adjust: bool = False,
         repair: bool = True,
@@ -80,6 +84,7 @@ class YFinanceLoader(BaseDataLoader):
         self.end = end
         self.prefer_adj_close = prefer_adj_close
         self.freq = freq
+        self.max_missing_ratio = max_missing_ratio
         self.interval = interval
         self.auto_adjust = auto_adjust
         self.repair = repair
@@ -103,6 +108,7 @@ class YFinanceLoader(BaseDataLoader):
             end=self.end,
             prefer_adj_close=self.prefer_adj_close,
             freq=self.freq,
+            max_missing_ratio=self.max_missing_ratio,
             interval=self.interval,
             auto_adjust=self.auto_adjust,
             repair=self.repair,

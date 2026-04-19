@@ -1,48 +1,37 @@
 {
-  "n_selected": 30,
-  "expected_return": 0.0007722716688197372,
-  "volatility": 0.007930724171538738,
-  "sharpe_m": 0.09737719432876193,
-  "meta_hrp_n_clusters": 5,
+  "n_selected": 21,
+  "expected_return": 0.0008795363007057475,
+  "volatility": 0.006653526830599018,
+  "sharpe_m": 0.13219099029718087,
+  "meta_hrp_n_clusters": 4,
   "meta_hrp_distance": "de_prado_embedding_distance",
   "meta_hrp_clustering": "hierarchical_clusters",
   "meta_hrp_clusters": [
     [
       "KO",
-      "MCD",
       "PG",
       "VZ"
     ],
     [
-      "AMGN",
-      "CVX",
-      "JNJ",
-      "MRK",
-      "TRV",
-      "UNH"
-    ],
-    [
-      "WMT"
-    ],
-    [
       "AAPL",
+      "AMGN",
       "AMZN",
-      "AXP",
-      "BA",
-      "CAT",
       "CRM",
       "CSCO",
-      "GS",
+      "CVX",
       "HD",
       "HON",
-      "IBM",
       "JPM",
-      "MMM",
+      "MRK",
       "MSFT",
       "NKE",
       "NVDA",
-      "SHW",
+      "UNH",
       "V"
+    ],
+    [
+      "MCD",
+      "WMT"
     ],
     [
       "DIS"
@@ -52,10 +41,9 @@
   "meta_hrp_outer_nrp_method": "inverse_vol",
   "meta_hrp_outer_nrp_min_vol": 1e-08,
   "meta_hrp_outer_nrp_sigma": {
-    "C0": 0.008207147504374297,
-    "C1": 0.009091921987797184,
-    "C2": 0.012054633334643097,
-    "C3": 0.012693010911257385,
-    "C4": 0.013910872017703343
+    "C0": 0.007857561414236396,
+    "C1": 0.00967348005853628,
+    "C2": 0.009022158068848702,
+    "C3": 0.012529562483466452
   }
 }

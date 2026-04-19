@@ -16,6 +16,7 @@ def local_loader(
     end: Optional[str] = None,
     prefer_adj_close: bool = True,
     freq: Optional[str] = None,
+    max_missing_ratio: float = 0.05,
 ) -> pd.DataFrame:
     """
     Lee un CSV con formato estilo yfinance y devuelve una matriz de cierres.
@@ -37,4 +38,5 @@ def local_loader(
         end=end,
         prefer_adj_close=prefer_adj_close,
         freq=freq,
+        max_missing_ratio=max_missing_ratio,
     )

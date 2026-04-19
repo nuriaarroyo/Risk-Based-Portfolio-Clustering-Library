@@ -1,7 +1,7 @@
 {
-  "n_selected": 100,
-  "expected_return": 0.0011976612033720076,
-  "volatility": 0.014428282323276037,
-  "sharpe_m": 0.08300788524493405,
-  "meta_n_assets": 100
+  "n_selected": 48,
+  "expected_return": 0.001195760177752818,
+  "volatility": 0.00990908745428962,
+  "sharpe_m": 0.12067308753392587,
+  "meta_n_assets": 48
 }

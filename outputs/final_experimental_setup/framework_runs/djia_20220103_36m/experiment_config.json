@@ -1,6 +1,6 @@
 {
   "run_id": "djia_20220103_36m",
-  "source": "yfinance",
+  "source": "processed",
   "universe_id": "djia",
   "universe_display_name": "DJIA Constituents",
   "requested_tickers": [
@@ -39,35 +39,26 @@
     "AAPL",
     "AMGN",
     "AMZN",
-    "AXP",
-    "BA",
-    "CAT",
     "CRM",
     "CSCO",
     "CVX",
     "DIS",
-    "GS",
     "HD",
     "HON",
-    "IBM",
-    "JNJ",
     "JPM",
     "KO",
     "MCD",
-    "MMM",
     "MRK",
     "MSFT",
     "NKE",
     "NVDA",
     "PG",
-    "SHW",
-    "TRV",
     "UNH",
     "V",
     "VZ",
     "WMT"
   ],
-  "n_assets": 30,
+  "n_assets": 21,
   "construction_date": "2022-01-03",
   "estimation_months": 36,
   "construction_start": "2019-01-03",
@@ -84,5 +75,5 @@
     "hrp_recursive",
     "hca_deprado_ew_nrp"
   ],
-  "hca_n_clusters": 5
+  "hca_n_clusters": 4
 }

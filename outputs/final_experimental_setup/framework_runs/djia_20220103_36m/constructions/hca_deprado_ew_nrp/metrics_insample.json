@@ -1,34 +1,20 @@
 {
-  "n_selected": 30,
-  "expected_return": 0.000946434873251072,
-  "volatility": 0.012361664056847306,
-  "sharpe_m": 0.07656209300776362,
-  "meta_hrp_n_clusters": 5,
+  "n_selected": 21,
+  "expected_return": 0.0008491433437924137,
+  "volatility": 0.008544224060475341,
+  "sharpe_m": 0.09938214842942371,
+  "meta_hrp_n_clusters": 4,
   "meta_hrp_distance": "de_prado_embedding_distance",
   "meta_hrp_clustering": "hierarchical_clusters",
   "meta_hrp_clusters": [
     [
-      "CSCO",
-      "HD",
-      "MCD",
-      "NKE",
-      "SHW",
-      "UNH",
-      "V"
+      "AMGN",
+      "MRK"
     ],
     [
-      "AXP",
-      "BA",
-      "CAT",
-      "CVX",
-      "DIS",
-      "GS",
-      "HON",
-      "IBM",
-      "JPM",
-      "KO",
-      "MMM",
-      "TRV"
+      "PG",
+      "VZ",
+      "WMT"
     ],
     [
       "AAPL",
@@ -38,24 +24,26 @@
       "NVDA"
     ],
     [
-      "AMGN",
-      "JNJ",
-      "MRK",
-      "PG",
-      "VZ"
-    ],
-    [
-      "WMT"
+      "CSCO",
+      "CVX",
+      "DIS",
+      "HD",
+      "HON",
+      "JPM",
+      "KO",
+      "MCD",
+      "NKE",
+      "UNH",
+      "V"
     ]
   ],
-  "meta_hrp_inner_n_assets": 1,
+  "meta_hrp_inner_n_assets": 11,
   "meta_hrp_outer_nrp_method": "inverse_vol",
   "meta_hrp_outer_nrp_min_vol": 1e-08,
   "meta_hrp_outer_nrp_sigma": {
-    "C0": 0.015108746319613254,
-    "C1": 0.017940818934473867,
-    "C2": 0.019149998161787234,
-    "C3": 0.0117028467548096,
-    "C4": 0.013988902377952245
+    "C0": 0.011831099390607752,
+    "C1": 0.008575100320365967,
+    "C2": 0.014796969829945548,
+    "C3": 0.012372051051593383
   }
 }

@@ -16,6 +16,7 @@ def yfinance_loader(
     end: Optional[str] = None,
     prefer_adj_close: bool = True,
     freq: Optional[str] = None,
+    max_missing_ratio: float = 0.05,
     interval: str = "1d",
     auto_adjust: bool = False,
     repair: bool = True,
@@ -70,6 +71,7 @@ def yfinance_loader(
             end=end,
             prefer_adj_close=prefer_adj_close,
             freq=freq,
+            max_missing_ratio=max_missing_ratio,
         )
 
     frames: list[pd.DataFrame] = []
@@ -133,6 +135,7 @@ def yfinance_loader(
         end=end,
         prefer_adj_close=prefer_adj_close,
         freq=freq,
+        max_missing_ratio=max_missing_ratio,
     )
 
 
@@ -184,6 +187,7 @@ def _load_saved_prices(
     end: Optional[str],
     prefer_adj_close: bool,
     freq: Optional[str],
+    max_missing_ratio: float,
 ) -> pd.DataFrame:
     if save_path is None:
         raise ValueError("Debes proporcionar `save_path` para usar datos guardados.")
@@ -198,6 +202,7 @@ def _load_saved_prices(
         end=end,
         prefer_adj_close=prefer_adj_close,
         freq=freq,
+        max_missing_ratio=max_missing_ratio,
     )
 
 

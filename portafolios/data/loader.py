@@ -33,6 +33,7 @@ def build_data_loader(
     end: Optional[str] = None,
     prefer_adj_close: bool = True,
     freq: Optional[str] = None,
+    max_missing_ratio: float = 0.05,
     path: str | Path | None = None,
     **kwargs,
 ) -> BaseDataLoader:
@@ -51,6 +52,7 @@ def build_data_loader(
             end=end,
             prefer_adj_close=prefer_adj_close,
             freq=freq,
+            max_missing_ratio=max_missing_ratio,
         )
 
     if source_normalized in {"yfinance", "yf", "remote"}:
@@ -62,6 +64,7 @@ def build_data_loader(
             end=end,
             prefer_adj_close=prefer_adj_close,
             freq=freq,
+            max_missing_ratio=max_missing_ratio,
             **kwargs,
         )
 
@@ -76,6 +79,7 @@ def get_data(
     end: Optional[str] = None,
     prefer_adj_close: bool = True,
     freq: Optional[str] = None,
+    max_missing_ratio: float = 0.05,
     path: str | Path | None = None,
     **kwargs,
 ) -> StandardizedData:
@@ -89,6 +93,7 @@ def get_data(
         end=end,
         prefer_adj_close=prefer_adj_close,
         freq=freq,
+        max_missing_ratio=max_missing_ratio,
         path=path,
         **kwargs,
     )
@@ -103,6 +108,7 @@ def load_prices(
     end: Optional[str] = None,
     prefer_adj_close: bool = True,
     freq: Optional[str] = None,
+    max_missing_ratio: float = 0.05,
     path: str | Path | None = None,
     **kwargs,
 ) -> pd.DataFrame:
@@ -127,6 +133,7 @@ def load_prices(
             end=end,
             prefer_adj_close=prefer_adj_close,
             freq=freq,
+            max_missing_ratio=max_missing_ratio,
             **kwargs,
         )
 
@@ -136,6 +143,7 @@ def load_prices(
         end=end,
         prefer_adj_close=prefer_adj_close,
         freq=freq,
+        max_missing_ratio=max_missing_ratio,
         **kwargs,
     )
 

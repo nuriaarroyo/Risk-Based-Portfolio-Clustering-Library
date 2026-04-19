@@ -1,9 +1,9 @@
 {
-  "mean_terminal_value": 1.1180869108816938,
-  "median_terminal_value": 1.1054377603137755,
-  "std_terminal_value": 0.15637776383874097,
-  "min_terminal_value": 0.6858341692882245,
-  "max_terminal_value": 1.8609665011077217,
-  "prob_loss": 0.246,
-  "mean_terminal_return": 0.1180869108816936
+  "mean_terminal_value": 1.1429832043075752,
+  "median_terminal_value": 1.1382366748710195,
+  "std_terminal_value": 0.13211550588243778,
+  "min_terminal_value": 0.7903064575813491,
+  "max_terminal_value": 1.6684649684691777,
+  "prob_loss": 0.1455,
+  "mean_terminal_return": 0.14298320430757505
 }

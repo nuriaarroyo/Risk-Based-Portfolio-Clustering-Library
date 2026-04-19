@@ -1,8 +1,8 @@
 {
-  "n_selected": 30,
-  "expected_return": 0.0008330422364966345,
-  "volatility": 0.011804410700173892,
-  "sharpe_m": 0.07057042131585298,
+  "n_selected": 21,
+  "expected_return": 0.0007361099175680504,
+  "volatility": 0.008134884404176547,
+  "sharpe_m": 0.090488061169022,
   "meta_hrp_mode": "recursive_bipartition",
   "meta_hrp_distance": "deprado",
   "meta_hrp_clustering": "hierarchical"

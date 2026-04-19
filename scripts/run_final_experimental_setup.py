@@ -10,6 +10,7 @@ from typing import Iterable
 
 import numpy as np
 import pandas as pd
+import plotly.graph_objects as go
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -356,6 +357,49 @@ def last_available_on_or_before(index: pd.DatetimeIndex, date: pd.Timestamp) -> 
     return pd.Timestamp(candidates.max())
 
 
+def save_mc_terminal_comparison_plot(
+    run_dir: Path,
+    run_id: str,
+    terminal_values: pd.DataFrame,
+) -> Path:
+    fig = go.Figure()
+    methods = list(terminal_values.columns)
+    palette = ["#4C78A8", "#F58518", "#54A24B", "#E45756", "#B279A2", "#72B7B2"]
+
+    for idx, method in enumerate(methods):
+        values = terminal_values[method].dropna().to_numpy(dtype=float)
+        color = palette[idx % len(palette)]
+        fig.add_trace(
+            go.Histogram(
+                x=values,
+                name=method,
+                histnorm="probability density",
+                opacity=0.45,
+                nbinsx=min(60, max(20, len(values) // 20)),
+                marker=dict(color=color),
+            )
+        )
+        fig.add_vline(
+            x=float(np.mean(values)),
+            line_dash="dash",
+            line_color=color,
+            line_width=2,
+        )
+
+    fig.update_layout(
+        title=f"Monte Carlo Terminal Distribution Comparison - {run_id}",
+        xaxis_title="Terminal Value",
+        yaxis_title="Density",
+        barmode="overlay",
+        template="plotly_white",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+    )
+    output_path = run_dir / "plots" / "mc_terminal_comparison.html"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.write_html(str(output_path))
+    return output_path
+
+
 def run_one_experiment(
     *,
     prices: pd.DataFrame,
@@ -508,10 +552,26 @@ def run_one_experiment(
     )
 
     rows = []
+    terminal_rows = []
+    terminal_values_wide: dict[str, np.ndarray] = {}
     for name in method_names:
         bt = backtest_results[name].summary_metrics
         mc = mc_results[name].summary_metrics
         weights = universe.get_construction(name).weights
+        terminal_values = np.asarray(mc_results[name].terminal_values, dtype=float)
+        terminal_values_wide[name] = terminal_values
+        terminal_rows.extend(
+            {
+                "run_id": run_id,
+                "universe_id": spec.universe_id,
+                "construction_date": str(construction_ts.date()),
+                "estimation_months": estimation_months,
+                "method": name,
+                "simulation_id": sim_idx,
+                "terminal_value": float(value),
+            }
+            for sim_idx, value in enumerate(terminal_values)
+        )
         rows.append(
             {
                 **config,
@@ -529,7 +589,11 @@ def run_one_experiment(
                 "max_weight": float(weights.max()),
             }
         )
-    return {"config": config, "rows": rows}
+    terminal_values_frame = pd.DataFrame(terminal_values_wide)
+    terminal_values_frame.to_csv(universe.output_dir / "plots" / "mc_terminal_values.csv", index=False)
+    if save_plots:
+        save_mc_terminal_comparison_plot(universe.output_dir, run_id, terminal_values_frame)
+    return {"config": config, "rows": rows, "terminal_rows": terminal_rows}
 
 
 def write_skipped(skipped: list[dict[str, str]]) -> None:
@@ -563,6 +627,7 @@ def main() -> None:
 
     specs, prices = resolve_universes(args.source)
     all_rows: list[dict[str, object]] = []
+    all_terminal_rows: list[dict[str, object]] = []
     run_configs: list[dict[str, object]] = []
     skipped: list[dict[str, str]] = []
 
@@ -592,6 +657,7 @@ def main() -> None:
                     continue
                 run_configs.append(result["config"])
                 all_rows.extend(result["rows"])
+                all_terminal_rows.extend(result["terminal_rows"])
 
     if not all_rows:
         write_skipped(skipped)
@@ -635,6 +701,7 @@ def main() -> None:
     summary[backtest_cols].to_csv(TABLE_DIR / "backtest_summary.csv", index=False)
     summary[mc_cols].to_csv(TABLE_DIR / "mc_summary.csv", index=False)
     summary[concentration_cols].to_csv(TABLE_DIR / "concentration.csv", index=False)
+    pd.DataFrame(all_terminal_rows).to_csv(TABLE_DIR / "mc_terminal_values.csv", index=False)
     write_skipped(skipped)
 
     config_payload = {

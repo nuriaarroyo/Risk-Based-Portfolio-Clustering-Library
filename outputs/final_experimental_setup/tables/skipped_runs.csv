@@ -1,0 +1,16 @@
+universe_id,construction_date,estimation_months,reason
+djia,2019-06-01,24,"Not enough history for the requested estimation window: need data around 2017-06-01, first available return is 2018-02-02."
+djia,2019-06-01,36,"Not enough history for the requested estimation window: need data around 2016-06-01, first available return is 2018-02-02."
+djia,2020-06-01,36,"Not enough history for the requested estimation window: need data around 2017-06-01, first available return is 2018-02-02."
+sp100_style_top100,2019-06-01,24,"Not enough history for the requested estimation window: need data around 2017-06-01, first available return is 2018-02-02."
+sp100_style_top100,2019-06-01,36,"Not enough history for the requested estimation window: need data around 2016-06-01, first available return is 2018-02-02."
+sp100_style_top100,2020-06-01,36,"Not enough history for the requested estimation window: need data around 2017-06-01, first available return is 2018-02-02."
+multi_asset_etf,2019-06-01,12,None of the requested tickers are available in the price data.
+multi_asset_etf,2019-06-01,24,None of the requested tickers are available in the price data.
+multi_asset_etf,2019-06-01,36,None of the requested tickers are available in the price data.
+multi_asset_etf,2020-06-01,12,None of the requested tickers are available in the price data.
+multi_asset_etf,2020-06-01,24,None of the requested tickers are available in the price data.
+multi_asset_etf,2020-06-01,36,None of the requested tickers are available in the price data.
+multi_asset_etf,2022-01-03,12,None of the requested tickers are available in the price data.
+multi_asset_etf,2022-01-03,24,None of the requested tickers are available in the price data.
+multi_asset_etf,2022-01-03,36,None of the requested tickers are available in the price data.

@@ -1,5 +1,5 @@
 {
-  "source": "yfinance",
+  "source": "processed",
   "universe_id": "djia",
   "display_name": "DJIA Constituents",
   "requested_tickers": [
@@ -38,29 +38,20 @@
     "AAPL",
     "AMGN",
     "AMZN",
-    "AXP",
-    "BA",
-    "CAT",
     "CRM",
     "CSCO",
     "CVX",
     "DIS",
-    "GS",
     "HD",
     "HON",
-    "IBM",
-    "JNJ",
     "JPM",
     "KO",
     "MCD",
-    "MMM",
     "MRK",
     "MSFT",
     "NKE",
     "NVDA",
     "PG",
-    "SHW",
-    "TRV",
     "UNH",
     "V",
     "VZ",
@@ -72,5 +63,5 @@
   "output_dir": "C:\\Users\\narro\\Desktop\\semestre\\honores_actuaria\\outputs\\final_experimental_setup\\framework_runs\\djia_20220103_12m",
   "frequency": "B",
   "start": "2020-12-28 00:00:00",
-  "end": "2023-01-09 00:00:00"
+  "end": "2023-01-10 00:00:00"
 }
