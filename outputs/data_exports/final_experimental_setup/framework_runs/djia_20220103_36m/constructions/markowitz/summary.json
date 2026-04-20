@@ -1,7 +1,0 @@
-{
-  "name": "markowitz",
-  "method": "markowitz_max_sharpe",
-  "method_id": "markowitz_max_sharpe",
-  "display_name": "Markowitz Max Sharpe",
-  "notes": null
-}

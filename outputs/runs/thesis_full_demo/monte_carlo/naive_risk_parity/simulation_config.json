@@ -1,7 +1,0 @@
-{
-  "construction_name": "naive_risk_parity",
-  "horizon": 30,
-  "n_simulations": 500,
-  "estimation_start": "2020-01-03 00:00:00",
-  "estimation_end": "2020-06-30 00:00:00"
-}

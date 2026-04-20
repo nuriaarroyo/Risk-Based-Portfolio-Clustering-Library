@@ -1,10 +1,21 @@
+# Python and notebook cache
 .ipynb_checkpoints/
 __pycache__/
 *.py[cod]
 
+# Local market-data cache
 .yfinance-cache/
 
+# Local archive area
+notebooks/archive/
+
+# Large generated outputs
 outputs/plots/
 outputs/test_runs/
+outputs/runs/
+outputs/final_experimental_setup/
+outputs/data_exports/final_experimental_setup/data/
+outputs/data_exports/final_experimental_setup/framework_runs/
 
-notebooks/archive/
+# Generated raw download snapshots
+yfinance_final_setup_raw.csv
