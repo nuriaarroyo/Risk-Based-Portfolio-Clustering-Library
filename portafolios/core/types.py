@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Optional
 
 import numpy as np
@@ -10,6 +10,16 @@ from ..data.base import StandardizedData
 
 
 MarketData = StandardizedData
+
+
+@dataclass(slots=True)
+class HRPDiagnostics:
+    distance_matrix: pd.DataFrame
+    clusters: list[list[str]]
+    cluster_returns: pd.DataFrame
+    cluster_weights: pd.Series
+    local_weights: dict[str, pd.Series]
+    final_weights: pd.Series
 
 
 @dataclass(slots=True)
@@ -26,10 +36,18 @@ class ConstructionResult:
     backtest_result: Optional[Any] = None
     mc_result: Optional[Any] = None
     notes: Optional[str] = None
+    diagnostics: dict[str, Any] = field(default_factory=dict)
 
     @property
     def method(self) -> str:
         return self.method_id
+
+    @property
+    def hrp_diagnostics(self) -> Optional[HRPDiagnostics]:
+        diagnostics = self.diagnostics.get("hrp")
+        if isinstance(diagnostics, HRPDiagnostics):
+            return diagnostics
+        return None
 
 
 @dataclass(slots=True)

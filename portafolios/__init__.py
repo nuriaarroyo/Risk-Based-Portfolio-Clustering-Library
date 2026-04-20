@@ -1,5 +1,5 @@
 from .core.portafolio import Portfolio, PortfolioUniverse, Universe
-from .core.types import BacktestResult, ConstructionResult, MarketData, MonteCarloResult
+from .core.types import BacktestResult, ConstructionResult, HRPDiagnostics, MarketData, MonteCarloResult
 from .constructores import EqualWeightConstructor, HRPRecursive, HRPStyle, Markowitz, NaiveRiskParity
 from .data import (
     BaseDataLoader,
@@ -24,6 +24,7 @@ __all__ = [
     "MarketData",
     "StandardizedData",
     "ConstructionResult",
+    "HRPDiagnostics",
     "BacktestResult",
     "MonteCarloResult",
     "BaseDataLoader",

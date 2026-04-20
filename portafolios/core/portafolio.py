@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, Callable, Iterable, Optional
 
@@ -13,7 +14,13 @@ from ..metrics import asset as am
 from ..metrics import portfolio as pm
 from ..plots import bar, bubble, corr_heatmap, pie
 from ..plots.hrp_plots import getmatrix, histogramadedist, matrizdedist
-from .types import ConstructionResult
+from .types import ConstructionResult, HRPDiagnostics
+
+
+class _HRPPlotAdapter:
+    def __init__(self, diagnostics: HRPDiagnostics) -> None:
+        self.last_dist = diagnostics.distance_matrix
+        self.last_clusters = diagnostics.clusters
 
 
 class PortfolioUniverse:
@@ -95,6 +102,7 @@ class PortfolioUniverse:
         self.market_data = data
         self.prices = data.prices.sort_index()
         self.returns = data.returns.sort_index()
+        self._reset_construction_state()
 
         if self.tickers is None:
             self.tickers = data.tickers
@@ -126,6 +134,15 @@ class PortfolioUniverse:
             self.save_market_data()
 
         return self
+
+    def _reset_construction_state(self) -> None:
+        self.weights = None
+        self.active_label = None
+        self.constructions.clear()
+        self.metadata.pop("active_construction", None)
+        self.metadata.pop("constructor", None)
+        self.metadata.pop("constructor_display_name", None)
+        self._last_constructor = None
 
     def create_output_dirs(self) -> None:
         for path in (
@@ -182,6 +199,33 @@ class PortfolioUniverse:
         if window.empty:
             raise ValueError("No hay retornos disponibles en la ventana solicitada.")
         return window
+
+    def _resolve_metric_context(
+        self,
+        *,
+        construction_name: str | None = None,
+    ) -> tuple[pd.Series, pd.DataFrame, pd.Series, pd.DataFrame]:
+        if self.asset_returns is None:
+            raise RuntimeError("Primero prepara los datos para tener retornos disponibles.")
+
+        construction = self.get_construction(construction_name or self.active_label) if (construction_name or self.active_label) else None
+
+        if construction is not None:
+            returns_frame = self.get_returns_window(
+                construction.construction_start,
+                construction.construction_end,
+            )
+            weights = construction.weights.copy()
+        elif self.weights is not None:
+            returns_frame = self.asset_returns
+            weights = self.weights.copy()
+        else:
+            raise RuntimeError("Primero construye el portafolio para tener weights.")
+
+        weights = weights.reindex(returns_frame.columns).fillna(0.0)
+        mean_returns = returns_frame.mean()
+        covariance = returns_frame.cov()
+        return weights, returns_frame, mean_returns, covariance
 
     def set_construction_window(
         self,
@@ -383,6 +427,25 @@ class PortfolioUniverse:
         self._last_constructor = constructor
         return self
 
+    def _extract_construction_diagnostics(self, constructor) -> dict[str, Any]:
+        diagnostics: dict[str, Any] = {}
+
+        if isinstance(constructor, HRPStyle) and hasattr(constructor, "last_dist"):
+            local_weights = {
+                cluster_name: cluster_weights.copy()
+                for cluster_name, cluster_weights in getattr(constructor, "last_local_weights", {}).items()
+            }
+            diagnostics["hrp"] = HRPDiagnostics(
+                distance_matrix=constructor.last_dist.copy(),
+                clusters=[list(cluster) for cluster in getattr(constructor, "last_clusters", [])],
+                cluster_returns=getattr(constructor, "last_cluster_returns", pd.DataFrame()).copy(),
+                cluster_weights=getattr(constructor, "last_w_clusters", pd.Series(dtype=float)).copy(),
+                local_weights=local_weights,
+                final_weights=getattr(constructor, "last_final_weights", pd.Series(dtype=float)).copy(),
+            )
+
+        return diagnostics
+
     def _build_construction_result(self, constructor, *, label: str | None = None, **kwargs) -> ConstructionResult:
         construction_start = (
             pd.Timestamp(kwargs.get("construction_start"))
@@ -401,21 +464,17 @@ class PortfolioUniverse:
             name = label or self._next_label(method_id)
             result = constructor.build(self, name=name, returns=construction_returns, **kwargs)
             result = self._normalize_construction_result(result)
-            if result.construction_start is None or result.construction_end is None:
-                return ConstructionResult(
-                    name=result.name,
-                    method_id=result.method_id,
-                    display_name=result.display_name,
-                    weights=result.weights,
-                    selected_assets=result.selected_assets,
-                    params=result.params,
-                    metrics_insample=result.metrics_insample,
-                    construction_start=construction_start if result.construction_start is None else result.construction_start,
-                    construction_end=construction_end if result.construction_end is None else result.construction_end,
-                    backtest_result=result.backtest_result,
-                    mc_result=result.mc_result,
-                    notes=result.notes,
-                )
+            diagnostics = dict(result.diagnostics)
+            diagnostics.update(self._extract_construction_diagnostics(constructor))
+            overrides: dict[str, Any] = {}
+            if result.construction_start is None:
+                overrides["construction_start"] = construction_start
+            if result.construction_end is None:
+                overrides["construction_end"] = construction_end
+            if diagnostics:
+                overrides["diagnostics"] = diagnostics
+            if overrides:
+                return replace(result, **overrides)
             return result
 
         if not hasattr(constructor, "optimizar"):
@@ -443,6 +502,7 @@ class PortfolioUniverse:
             backtest_result=None,
             mc_result=None,
             notes=kwargs.get("notes"),
+            diagnostics=self._extract_construction_diagnostics(constructor),
         )
 
     def add_construction(self, result: ConstructionResult, *, set_active: bool = True) -> None:
@@ -494,6 +554,7 @@ class PortfolioUniverse:
         *,
         returns: pd.DataFrame | None = None,
         ann_factor: int | None = None,
+        rf_per_period: float = 0.0,
     ) -> dict[str, float]:
         returns_frame = returns if returns is not None else self.asset_returns
         weights = weights.reindex(returns_frame.columns).fillna(0.0)
@@ -504,7 +565,15 @@ class PortfolioUniverse:
             "n_selected": int((weights != 0).sum()),
             "expected_return": float(pm.expected_return_from_moments(mean_returns, weights, ann_factor=ann_factor)),
             "volatility": float(pm.expected_volatility_from_moments(covariance, weights, ann_factor=ann_factor)),
-            "sharpe_m": float(pm.sharpe_from_moments(mean_returns, covariance, weights, ann_factor=ann_factor)),
+            "sharpe_m": float(
+                pm.sharpe_from_moments(
+                    mean_returns,
+                    covariance,
+                    weights,
+                    rf_per_period=rf_per_period,
+                    ann_factor=ann_factor,
+                )
+            ),
         }
 
     def make_basic_metrics(
@@ -513,25 +582,25 @@ class PortfolioUniverse:
         *,
         returns: pd.DataFrame | None = None,
         ann_factor: int | None = None,
+        rf_per_period: float = 0.0,
     ) -> dict[str, float]:
-        return self._make_basic_metrics(weights, returns=returns, ann_factor=ann_factor)
+        return self._make_basic_metrics(
+            weights,
+            returns=returns,
+            ann_factor=ann_factor,
+            rf_per_period=rf_per_period,
+        )
 
     def _normalize_construction_result(self, result: ConstructionResult) -> ConstructionResult:
         weights = result.weights.reindex(self.asset_returns.columns).fillna(0.0).sort_index()
         selected = [asset for asset in weights.index if weights.loc[asset] != 0]
-        return ConstructionResult(
-            name=result.name,
-            method_id=result.method_id,
-            display_name=result.display_name,
+        return replace(
+            result,
             weights=weights,
             selected_assets=selected,
-            params=dict(result.params),
-            metrics_insample=dict(result.metrics_insample),
-            construction_start=result.construction_start,
-            construction_end=result.construction_end,
-            backtest_result=result.backtest_result,
-            mc_result=result.mc_result,
-            notes=result.notes,
+            params=dict(result.params or {}),
+            metrics_insample=dict(result.metrics_insample or {}),
+            diagnostics=dict(result.diagnostics or {}),
         )
 
     def _next_label(self, base: str) -> str:
@@ -543,69 +612,70 @@ class PortfolioUniverse:
         return label
 
     def kpi(self, nombre: str, **kwargs):
-        if self.weights is None:
-            raise RuntimeError("Primero construye el portafolio para tener weights.")
-
         ann = kwargs.get("ann_factor", None)
         rf = kwargs.get("rf_per_period", 0.0)
+        construction_name = kwargs.get("construction_name")
+        weights, returns_frame, mean_returns, covariance = self._resolve_metric_context(
+            construction_name=construction_name
+        )
 
         if nombre in ("exp_return", "er"):
-            return pm.expected_return_from_moments(self.asset_mean_ret, self.weights, ann_factor=ann)
+            return pm.expected_return_from_moments(mean_returns, weights, ann_factor=ann)
         if nombre in ("vol", "volatility"):
-            return pm.expected_volatility_from_moments(self.covariance, self.weights, ann_factor=ann)
+            return pm.expected_volatility_from_moments(covariance, weights, ann_factor=ann)
         if nombre in ("sharpe_m", "sharpe_moments"):
             return pm.sharpe_from_moments(
-                self.asset_mean_ret,
-                self.covariance,
-                self.weights,
+                mean_returns,
+                covariance,
+                weights,
                 rf_per_period=rf,
                 ann_factor=ann,
             )
         if nombre in ("rc", "risk_contrib"):
             return pm.risk_contributions_from_cov(
-                self.covariance,
-                self.weights,
+                covariance,
+                weights,
                 ann_factor=ann,
                 as_fraction=kwargs.get("as_fraction", True),
             )
 
         if nombre in ("sharpe",):
-            return pm.sharpe(self.asset_returns, self.weights, rf_per_period=rf, ann_factor=ann)
+            return pm.sharpe(returns_frame, weights, rf_per_period=rf, ann_factor=ann)
         if nombre in ("sortino",):
             return pm.sortino(
-                self.asset_returns,
-                self.weights,
+                returns_frame,
+                weights,
                 mar_per_period=kwargs.get("mar_per_period", 0.0),
                 ann_factor=ann,
             )
         if nombre in ("mdd", "max_drawdown"):
-            return pm.max_drawdown(self.asset_returns, self.weights)
+            return pm.max_drawdown(returns_frame, weights)
         if nombre in ("calmar",):
             return pm.calmar_from_moments(
-                self.asset_mean_ret,
-                self.covariance,
-                self.weights,
+                mean_returns,
+                covariance,
+                weights,
                 ann_factor=ann,
-                returns_for_mdd=self.asset_returns,
+                returns_for_mdd=returns_frame,
             )
         if nombre in ("var", "var_gauss"):
-            return pm.var_gaussian(self.asset_returns, self.weights, alpha=kwargs.get("alpha", 0.95), ann_factor=ann)
+            return pm.var_gaussian(returns_frame, weights, alpha=kwargs.get("alpha", 0.95), ann_factor=ann)
         if nombre in ("cvar", "cvar_gauss", "es"):
             return pm.cvar_gaussian(
-                self.asset_returns,
-                self.weights,
+                returns_frame,
+                weights,
                 alpha=kwargs.get("alpha", 0.95),
                 ann_factor=ann,
             )
         if nombre in ("te", "tracking_error"):
             bench = kwargs["benchmark"]
-            return pm.tracking_error(self.asset_returns, self.weights, bench, ann_factor=ann)
+            return pm.tracking_error(returns_frame, weights, bench, ann_factor=ann)
         if nombre in ("alpha_beta", "ab"):
             bench = kwargs["benchmark"]
-            return pm.alpha_beta(self.asset_returns, self.weights, bench, rf_per_period=rf, ann_factor=ann)
+            return pm.alpha_beta(returns_frame, weights, bench, rf_per_period=rf, ann_factor=ann)
         if nombre in ("ir", "information_ratio"):
             bench = kwargs["benchmark"]
-            return pm.information_ratio(self.asset_returns, self.weights, bench, ann_factor=ann)
+            return pm.information_ratio(returns_frame, weights, bench, ann_factor=ann)
 
         raise ValueError(f"KPI no reconocido: {nombre}")
 
@@ -616,10 +686,17 @@ class PortfolioUniverse:
         return self.kpis_basicos(ann_factor=ann_factor, rf_per_period=rf_per_period)
 
     def kpis_basicos(self, *, ann_factor: int | None = None, rf_per_period: float = 0.0) -> dict:
+        weights, returns_frame, _, _ = self._resolve_metric_context()
+        metrics = self._make_basic_metrics(
+            weights,
+            returns=returns_frame,
+            ann_factor=ann_factor,
+            rf_per_period=rf_per_period,
+        )
         return {
-            "expected_return": self.kpi("exp_return", ann_factor=ann_factor),
-            "volatility": self.kpi("vol", ann_factor=ann_factor),
-            "sharpe_m": self.kpi("sharpe_m", ann_factor=ann_factor, rf_per_period=rf_per_period),
+            "expected_return": metrics["expected_return"],
+            "volatility": metrics["volatility"],
+            "sharpe_m": metrics["sharpe_m"],
         }
 
     def prepare_data(self) -> "PortfolioUniverse":
@@ -652,55 +729,48 @@ class PortfolioUniverse:
     def corr_heatmap(self, kind: str = "correlation", round_decimals: int = 2) -> None:
         return corr_heatmap.corr_heatmap_portfolio(self, kind=kind, round_decimals=round_decimals)
 
-    def plot_hrp_matriz_distancias(self, file_path: str | None = None):
-        ctor = getattr(self, "_last_constructor", None)
-
-        if ctor is None:
-            print("Aun no has construido el portafolio con ningun constructor.")
-            return
-
-        if not hasattr(ctor, "last_dist"):
-            print(
-                "Funcion disponible solo si el portafolio fue construido con HRPStyle "
-                "y ya se corrio al menos una vez."
-            )
-            return
-
-        return matrizdedist.matriz_distancias(ctor, file_path=file_path)
-
-    def plot_hrp_hist_distancias(self) -> None:
-        ctor = getattr(self, "_last_constructor", None)
-
-        if ctor is None:
-            print("Aun no has construido el portafolio con ningun constructor.")
-            return
-
-        if not isinstance(ctor, HRPStyle):
-            print("Funcion disponible solo si el portafolio fue construido con HRPStyle.")
-            return
-
-        if not hasattr(ctor, "last_dist"):
-            print("Este HRPStyle no tiene datos de distancias. Ya corriste construir?")
-            return
-
-        histogramadedist.histograma_distancias(ctor)
-
-    def get_hrp_dist_matrix(self) -> Optional[pd.DataFrame]:
-        ctor = getattr(self, "_last_constructor", None)
-
-        if ctor is None:
-            print("Aun no has construido el portafolio con ningun constructor.")
+    def _get_hrp_diagnostics(self, construction_name: str | None = None) -> Optional[HRPDiagnostics]:
+        target_name = construction_name or self.active_label
+        if target_name is None:
+            print("No active construction is selected. Build one first or pass construction_name.")
             return None
 
-        if not isinstance(ctor, HRPStyle):
-            print("Funcion disponible solo si el portafolio fue construido con HRPStyle.")
+        construction = self.get_construction(target_name)
+        diagnostics = construction.hrp_diagnostics
+        if diagnostics is None:
+            print(f"Construction '{construction.name}' does not include HRP diagnostics.")
             return None
 
-        if not hasattr(ctor, "last_dist"):
-            print("Este HRPStyle no tiene datos de distancias. Ya corriste construir?")
+        return diagnostics
+
+    def plot_hrp_matriz_distancias(
+        self,
+        file_path: str | None = None,
+        construction_name: str | None = None,
+    ):
+        diagnostics = self._get_hrp_diagnostics(construction_name=construction_name)
+        if diagnostics is None:
             return None
 
-        return getmatrix.get_distmat(ctor)
+        return matrizdedist.matriz_distancias(_HRPPlotAdapter(diagnostics), file_path=file_path)
+
+    def plot_hrp_hist_distancias(
+        self,
+        file_path: str | None = "hrp_hist_distancias_deprado.html",
+        construction_name: str | None = None,
+    ) -> None:
+        diagnostics = self._get_hrp_diagnostics(construction_name=construction_name)
+        if diagnostics is None:
+            return None
+
+        return histogramadedist.histograma_distancias(_HRPPlotAdapter(diagnostics), file_path=file_path)
+
+    def get_hrp_dist_matrix(self, construction_name: str | None = None) -> Optional[pd.DataFrame]:
+        diagnostics = self._get_hrp_diagnostics(construction_name=construction_name)
+        if diagnostics is None:
+            return None
+
+        return getmatrix.get_distmat(_HRPPlotAdapter(diagnostics))
 
 
 Portfolio = PortfolioUniverse
