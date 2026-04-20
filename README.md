@@ -66,10 +66,11 @@ universe = Universe(
     loader=local_loader,
     loader_kwargs={"path": csv_path, "prefer_adj_close": True},
     tickers=["AAPL", "MSFT", "AMZN", "GOOG"],
-    start="2020-01-01",
-    end="2024-12-31",
-    construction_start="2020-01-01",
-    construction_end="2020-06-30",
+    start="2024-01-02",
+    end="2024-03-28",
+    construction_start="2024-01-02",
+    construction_end="2024-02-15",
+    auto_save_data=False,
 ).prepare_data()
 
 universe.build(EqualWeightConstructor())
@@ -115,7 +116,7 @@ fig = PortfolioVisualizer(universe).plot_backtest(
 
 ## Output Structure
 
-Runs are saved under:
+The library writes a standard per-run structure under:
 
 ```text
 outputs/runs/<universe_name>/
@@ -131,27 +132,48 @@ Constructors use:
 - `method_id` for stable folder-safe identifiers such as `naive_risk_parity`
 - `display_name` for human-readable plot titles and summaries
 
+For the thesis workflow, the experiment pipeline also maintains a curated export surface under:
+
+```text
+outputs/data_exports/final_experimental_setup/
+|- paper_figures/
+|- tables/
+`- experiment_config.json
+```
+
+Large generated run artifacts are treated as reproducible local outputs rather than the main thesis-facing repository surface.
+
 ## Repository Structure
 
 ```text
 honores_actuaria/
 |- portafolios/        # active library code
+|- scripts/            # runnable experiment pipelines
 |- legacy/             # archived pre-refactor code
 |- notebooks/
-|  |- demos/           # end-to-end walkthroughs
-|  |- validation/      # notebook-based checks
-|  `- exploration/     # scratch / smoke notebooks
+|  |- thesis/          # final thesis-facing notebooks
+|  |- final_experimental_setup/
+|  |  `- read_final_results.ipynb   # active working notebook
+|  `- archive/         # demos, validation, exploration, loose exports
 |- data/
 |  |- yf_snapshot.csv
 |  `- processed/
 |- outputs/
-|  |- runs/
-|  |- test_runs/
-|  |- plots/
 |  `- data_exports/
+|     `- final_experimental_setup/
+|        |- paper_figures/
+|        `- tables/
 `- README.md
 ```
 
 ## Current Status
 
-This is an active thesis project, not a finished production package. The core research workflow is implemented and runnable, and the repository includes a working library structure, executable notebooks, and reproducible exported results. Packaging and final polish are still in progress.
+This is an active thesis project, not a finished production package. The core research workflow is implemented and runnable, and the repository includes a working library structure, curated thesis notebooks, and reproducible exported results.
+
+The current cleanup has focused on repository presentation rather than changing the core library logic:
+
+- thesis-facing notebooks were separated from demos, validation, and exploration material
+- loose exported images were moved out of the live notebook workspace
+- large generated outputs were removed from git tracking while remaining reproducible locally
+
+Packaging and final polish are still in progress.
