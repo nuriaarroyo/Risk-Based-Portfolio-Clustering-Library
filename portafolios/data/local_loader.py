@@ -19,12 +19,12 @@ def local_loader(
     max_missing_ratio: float = 0.05,
 ) -> pd.DataFrame:
     """
-    Lee un CSV con formato estilo yfinance y devuelve una matriz de cierres.
+    Read a Yahoo Finance-style CSV snapshot and return a close-price matrix.
 
-    Retorna un DataFrame con:
-    - index: fechas
+    Returns a DataFrame with:
+    - index: dates
     - columns: tickers
-    - values: precios de cierre
+    - values: close prices
     """
     path = Path(path)
     if not path.exists():

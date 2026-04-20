@@ -1,17 +1,16 @@
-# portafolios/constructores/hrp_style/distancias/corr.py
 from __future__ import annotations
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 
 def corr_distance(returns: pd.DataFrame) -> pd.DataFrame:
     """
-    Distancia simple basada en correlación:
+    Simple correlation-based distance:
 
         D_ij = 1 - corr_ij
 
-    returns: DataFrame (fechas x activos)
+    returns: DataFrame (dates x assets)
     """
     corr = returns.corr()
     dist = 1.0 - corr

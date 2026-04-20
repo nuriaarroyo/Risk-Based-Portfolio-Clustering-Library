@@ -19,7 +19,7 @@ class BaseDataLoader(ABC):
     @abstractmethod
     def load_prices(self) -> pd.DataFrame:
         """
-        Carga y devuelve precios normalizados.
+        Load and return normalized prices.
         """
 
     def compute_returns(self, prices: pd.DataFrame) -> pd.DataFrame:
@@ -40,5 +40,5 @@ class BaseDataLoader(ABC):
     @abstractmethod
     def _build_metadata(self, prices: pd.DataFrame) -> dict[str, Any]:
         """
-        Construye metadata del dataset cargado.
+        Build metadata for the loaded dataset.
         """

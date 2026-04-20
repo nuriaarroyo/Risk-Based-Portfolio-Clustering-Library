@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from typing import Optional
 
 import pandas as pd
@@ -13,19 +14,19 @@ def matriz_distancias(
     file_path: Optional[str] = None,
 ) -> go.Figure:
     """
-    Heatmap Plotly de la matriz de distancias usada por HRP.
+    Plotly heatmap of the distance matrix used by HRP.
 
-    hrp: objeto HRPStyle ya usado en p.construir(hrp)
+    hrp: `HRPStyle` object already used in `p.construir(hrp)`
     """
     if not hasattr(hrp, "last_dist"):
         raise RuntimeError("Este HRPStyle no tiene 'last_dist'. ¿Ya corriste p.construir(hrp)?")
 
     dist: pd.DataFrame = hrp.last_dist.copy()
 
-    # Reordenar por clusters si está disponible
+    # Reorder by clusters when available.
     if ordenar_por_clusters and hasattr(hrp, "last_clusters"):
-        ordered = [a for cluster in hrp.last_clusters for a in cluster]
-        ordered = [a for a in ordered if a in dist.index]
+        ordered = [asset for cluster in hrp.last_clusters for asset in cluster]
+        ordered = [asset for asset in ordered if asset in dist.index]
         dist = dist.loc[ordered, ordered]
 
     fig = go.Figure(
@@ -51,4 +52,3 @@ def matriz_distancias(
 
     fig.show()
     return fig
-

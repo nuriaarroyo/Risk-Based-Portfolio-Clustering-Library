@@ -1,8 +1,7 @@
-# portafolios/plots/corr_heatmap.py
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal, TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 import pandas as pd
@@ -18,36 +17,36 @@ def corr_heatmap_portfolio(
     round_decimals: int = 2,
 ) -> None:
     """
-    Heatmap (Plotly) de la matriz de correlación o covarianza del portafolio.
+    Plotly heatmap of the portfolio correlation or covariance matrix.
 
-    Usa solo cosas que ya tienes en PortfolioUniverse:
-    - portfolio.correlation
-    - portfolio.covariance
-    - portfolio.asset_log_returns o asset_returns como respaldo
-    - portfolio.info["constructor_display_name"] para el título
+    Uses only objects already present on `PortfolioUniverse`:
+    - `portfolio.correlation`
+    - `portfolio.covariance`
+    - `portfolio.asset_log_returns` or `asset_returns` as fallback
+    - `portfolio.info["constructor_display_name"]` for the title
 
-    Parámetros
+    Parameters
     ----------
     kind : {"correlation", "covariance"}
-        - "correlation": usa la matriz de correlaciones.
-        - "covariance": usa la matriz de covarianzas.
+        - "correlation": use the correlation matrix.
+        - "covariance": use the covariance matrix.
     round_decimals : int
-        Número de decimales para mostrar en las anotaciones.
+        Number of decimals shown in annotations.
     """
 
-    # --- elegir la matriz base ---
+    # Choose the base matrix.
     if kind == "correlation":
         mat = portfolio.correlation
         if mat is None:
-            # respaldo por si no se calculó en preparar_datos
+            # Fallback in case it was not computed during `preparar_datos`.
             if portfolio.asset_log_returns is not None:
                 mat = portfolio.asset_log_returns.corr()
             elif portfolio.asset_returns is not None:
                 mat = portfolio.asset_returns.corr()
             else:
-                print("No hay retornos para calcular la correlación.")
+                print("No hay retornos para calcular la correlacion.")
                 return
-        title_kind = "Correlación"
+        title_kind = "Correlacion"
     elif kind == "covariance":
         mat = portfolio.covariance
         if mat is None:
@@ -63,25 +62,25 @@ def corr_heatmap_portfolio(
         raise ValueError("kind debe ser 'correlation' o 'covariance'.")
 
     if not isinstance(mat, pd.DataFrame) or mat.empty:
-        print("La matriz seleccionada está vacía o no es un DataFrame.")
+        print("La matriz seleccionada esta vacia o no es un DataFrame.")
         return
 
-    # asegurarnos de que filas y columnas coinciden en orden
+    # Ensure rows and columns are aligned in the same order.
     mat = mat.loc[mat.index, mat.index]
 
-    # valores numéricos
+    # Numeric values.
     z = mat.values.astype(float)
     tickers = mat.index.tolist()
 
-    # límites de colores
+    # Color limits.
     if kind == "correlation":
         zmin, zmax = -1.0, 1.0
     else:
-        # covarianza puede estar muy desbalanceada; usamos simetría
+        # Covariance can be highly unbalanced, so use symmetric limits.
         max_abs = np.nanmax(np.abs(z)) if np.isfinite(z).any() else 1.0
         zmin, zmax = -max_abs, max_abs
 
-    # texto con valores redondeados
+    # Rounded annotation text.
     text = np.vectorize(lambda v: f"{v:.{round_decimals}f}")(z)
 
     fig = go.Figure(
@@ -104,7 +103,7 @@ def corr_heatmap_portfolio(
     )
 
     fig.update_layout(
-        title=f"Heatmap de {title_kind} — {constructor_name}",
+        title=f"Heatmap de {title_kind} - {constructor_name}",
         xaxis_title="Activos",
         yaxis_title="Activos",
         xaxis_showgrid=False,
@@ -115,7 +114,7 @@ def corr_heatmap_portfolio(
         paper_bgcolor="white",
     )
 
-    # --- guardar ---
+    # Save output.
     safe_constructor = str(constructor_name).replace(" ", "_").replace("/", "_")
     suffix = "corr" if kind == "correlation" else "cov"
     plots_dir = Path(getattr(portfolio, "plots_dir", Path.cwd() / "outputs" / "plots"))

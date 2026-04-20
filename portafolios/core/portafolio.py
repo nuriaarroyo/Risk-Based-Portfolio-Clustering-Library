@@ -1,4 +1,3 @@
-# portafolios/core/portafolio.py
 from __future__ import annotations
 
 import json
@@ -19,9 +18,9 @@ from .types import ConstructionResult
 
 class PortfolioUniverse:
     """
-    Objeto principal del framework.
+    Main framework object.
 
-    Mantiene el dataset compartido y multiples construcciones sobre el mismo universo.
+    It keeps a shared dataset and multiple constructions over the same universe.
     """
 
     def __init__(

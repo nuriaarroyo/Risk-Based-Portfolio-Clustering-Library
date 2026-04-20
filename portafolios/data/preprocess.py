@@ -17,9 +17,9 @@ def select_close_prices(
     max_missing_ratio: float = 0.05,
 ) -> pd.DataFrame:
     """
-    Normaliza un DataFrame estilo yfinance a una matriz de precios de cierre.
+    Normalize a Yahoo Finance-style DataFrame into a close-price matrix.
 
-    Acepta columnas simples o MultiIndex y devuelve solo cierres por ticker.
+    Accepts plain or MultiIndex columns and returns close prices only.
     """
     if df.empty:
         raise ValueError("El DataFrame de entrada esta vacio.")

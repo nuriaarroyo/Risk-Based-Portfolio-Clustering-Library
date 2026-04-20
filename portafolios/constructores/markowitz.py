@@ -1,4 +1,3 @@
-# portafolios/constructores/markowitz.py
 from __future__ import annotations
 
 from typing import Any
@@ -12,11 +11,12 @@ from .base import BaseConstructor
 
 class Markowitz(BaseConstructor):
     """
-    Constructor Markowitz que maximiza el Sharpe ratio histórico.
+    Markowitz constructor that maximizes the historical Sharpe ratio.
 
-    Nota: PortfolioUniverse.construir le pasa `asset_returns` (retornos simples).
-    Por defecto se usan tal cual para mantener consistencia con el resto de la
-    librería. Opcionalmente pueden convertirse a log con `ret_kind="log"`.
+    Note: `PortfolioUniverse.construir` passes `asset_returns` (simple returns).
+    They are used as-is by default to keep behavior consistent across the
+    library. They can optionally be converted to log returns with
+    `ret_kind="log"`.
     """
 
     method_id = "markowitz_max_sharpe"
@@ -34,20 +34,19 @@ class Markowitz(BaseConstructor):
         bounds: Any = None,
         **kwargs,
     ) -> tuple[pd.Series, dict[str, Any]]:
-
         if returns is None or returns.empty:
-            raise ValueError("El DataFrame de retornos está vacío o es None.")
+            raise ValueError("El DataFrame de retornos esta vacio o es None.")
 
-        # returns que vienen de PortfolioUniverse son retornos simples.
+        # Returns coming from PortfolioUniverse are simple returns.
         rets = returns.dropna(axis=0, how="any")
         if rets.empty:
             raise ValueError("No hay filas sin NaN en los retornos.")
 
-        # --- elegir qué tipo de retornos usar en la optimización --- 
-        # ret_kind = "log"  -> usamos log(1 + r_simple)
-        # ret_kind = "simple" -> usamos r_simple tal cual
+        # Choose which return type to use in the optimization.
+        # ret_kind = "log"    -> use log(1 + simple_return)
+        # ret_kind = "simple" -> use simple_return as-is
         if ret_kind == "log":
-            rets_used = np.log1p(rets)   # log(1+r)
+            rets_used = np.log1p(rets)
         elif ret_kind in ("simple", "normal", "pct"):
             rets_used = rets
         else:
@@ -59,20 +58,20 @@ class Markowitz(BaseConstructor):
         rf = float(kwargs.get("rf_per_period", self.rf_per_period))
 
         mean_returns = rets_used.mean()
-        cov_matrix   = rets_used.cov()
+        cov_matrix = rets_used.cov()
 
-        # --- bounds ---
+        # Bounds.
         if bounds is not None:
             bounds_tuple = tuple(bounds)
             if len(bounds_tuple) != n:
-                raise ValueError("bounds debe tener longitud = número de activos.")
+                raise ValueError("bounds debe tener longitud = numero de activos.")
         else:
             if allow_short:
                 bounds_tuple = tuple((-1.0, 1.0) for _ in range(n))
             else:
                 bounds_tuple = tuple((0.0, 1.0) for _ in range(n))
 
-        # restricción suma de pesos = 1
+        # Weight-sum constraint = 1.
         constraints = [{"type": "eq", "fun": lambda w: np.sum(w) - 1.0}]
         x0 = np.ones(n) / n
 
@@ -116,7 +115,7 @@ class Markowitz(BaseConstructor):
             "success": True,
             "message": result.message,
             "rf_per_period": rf,
-            "objective": -float(result.fun),  # Sharpe max alcanzado
+            "objective": -float(result.fun),  # Maximum Sharpe reached
             "allow_short": allow_short,
             "ret_kind_used": ret_kind,
         }

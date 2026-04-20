@@ -13,7 +13,7 @@ from .yfinance_loader import yfinance_loader
 
 def get_loader(source: str = "yfinance"):
     """
-    Devuelve una funcion loader compatible con `Portfolio`.
+    Return a loader function compatible with `Portfolio`.
     """
     source_normalized = source.strip().lower()
 
@@ -38,7 +38,7 @@ def build_data_loader(
     **kwargs,
 ) -> BaseDataLoader:
     """
-    Construye un loader OOP con salida estandarizada.
+    Build an object-oriented loader with standardized output.
     """
     source_normalized = source.strip().lower()
 
@@ -84,7 +84,7 @@ def get_data(
     **kwargs,
 ) -> StandardizedData:
     """
-    Devuelve un objeto de datos estandarizado e independiente de la fuente.
+    Return a standardized data object that is independent of the source.
     """
     loader = build_data_loader(
         source=source,
@@ -113,9 +113,9 @@ def load_prices(
     **kwargs,
 ) -> pd.DataFrame:
     """
-    Loader unificado para usar directamente con `Portfolio`.
+    Unified loader for direct use with `Portfolio`.
 
-    Ejemplos:
+    Examples:
     - Local:
       `loader=load_prices, loader_kwargs={"source": "local", "path": "..."}`
     - Yahoo Finance:
@@ -148,5 +148,5 @@ def load_prices(
     )
 
 
-# Alias corto para enfatizar el uso como loader de Portfolio.
+# Short alias that emphasizes use as a Portfolio loader.
 portfolio_loader = load_prices

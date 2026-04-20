@@ -1,48 +1,43 @@
-# portafolios/constructores/hrp_style/hrp_core.py
 from __future__ import annotations
 
-from typing import Callable, Any
+from typing import Any, Callable
+
 import pandas as pd
-
-from .distancias  import corr, deprado
-from .clustering.simple_cluster import hierarchical_clusters
-
 
 from portafolios.constructores.equal_weight import EqualWeightConstructor
 
+from .clustering.simple_cluster import hierarchical_clusters
+from .distancias import corr, deprado
+
+
 DISTANCE_REGISTRY: dict[str, Callable[[pd.DataFrame], pd.DataFrame]] = {
-        "corr": corr.corr_distance,
-        "deprado": deprado.de_prado_embedding_distance,  # nombre como tú quieras  
-    }
+    "corr": corr.corr_distance,
+    "deprado": deprado.de_prado_embedding_distance,
+}
 
 
 class HRPStyle:
     """
-    Constructor HRP-style de dos niveles, compatible con PortfolioUniverse.construir.
+    Two-level HRP-style constructor compatible with `PortfolioUniverse.construir`.
 
-    Se usa así:
+    Typical usage:
 
-        from portafolios.constructores.hrp_style.hrp_core import HRPStyle
         from portafolios.constructores.equal_weight import EqualWeightConstructor
+        from portafolios.constructores.hrp_style.hrp_core import HRPStyle
 
         hrp = HRPStyle(
             distance="corr",
             clustering="hierarchical",
-            inner=EqualWeightConstructor(),   # constructor dentro de cada cluster
-            outer=EqualWeightConstructor(),   # constructor entre clusters
+            inner=EqualWeightConstructor(),   # constructor inside each cluster
+            outer=EqualWeightConstructor(),   # constructor across clusters
             n_clusters=3,
         )
 
         p.construir(hrp)
     """
 
-    
-
-    
-
-
     def __init__(
-           self,
+        self,
         *,
         distance: str | Callable[[pd.DataFrame], pd.DataFrame] = "corr",
         clustering: str | Callable[[pd.DataFrame, int], list[list[str]]] = "hierarchical",
@@ -56,40 +51,38 @@ class HRPStyle:
         self.display_name = nombre or display_name
         self.n_clusters = n_clusters
 
-        
-        # ----- resolver distancia -----
+        # Resolve distance function.
         if isinstance(distance, str):
-                try:
-                    self.distance_func = DISTANCE_REGISTRY[distance]
-                except KeyError:
-                    raise ValueError(
-                        f"Distancia desconocida: {distance}. "
-                        f"Opciones válidas: {list(DISTANCE_REGISTRY.keys())}"
-                    )
+            try:
+                self.distance_func = DISTANCE_REGISTRY[distance]
+            except KeyError:
+                raise ValueError(
+                    f"Distancia desconocida: {distance}. "
+                    f"Opciones validas: {list(DISTANCE_REGISTRY.keys())}"
+                )
         elif callable(distance):
-                self.distance_func = distance
+            self.distance_func = distance
         else:
-                raise TypeError("distance debe ser un string de DISTANCE_REGISTRY o una función.")
+            raise TypeError("distance must be a string from DISTANCE_REGISTRY or a callable.")
 
-
-        # ----- resolver clustering -----
+        # Resolve clustering function.
         if isinstance(clustering, str):
             if clustering == "hierarchical":
-                # nuestra función simple_hierarchical(dist, n_clusters=...)
+                # Our simple hierarchical helper accepts (dist, n_clusters=...).
                 self.clustering_func = hierarchical_clusters
             else:
                 raise ValueError(f"Clustering desconocido: {clustering}")
         elif callable(clustering):
             self.clustering_func = clustering
         else:
-            raise TypeError("clustering debe ser 'hierarchical' o una función.")
+            raise TypeError("clustering must be 'hierarchical' or a callable.")
 
-        # ----- constructores internos -----
-        # Si no te pasan nada, usa EqualWeightConstructor() en ambos niveles
+        # Resolve the inner and outer constructors.
+        # If nothing is provided, use EqualWeightConstructor() at both levels.
         self.inner_constructor = inner if inner is not None else EqualWeightConstructor()
         self.outer_constructor = outer if outer is not None else EqualWeightConstructor()
 
-    # helper para correr cualquier constructor (Markowitz, Naive, etc.)
+    # Helper to run any constructor (Markowitz, Naive, etc.).
     def _run_constructor(
         self,
         constructor: Any,
@@ -97,9 +90,9 @@ class HRPStyle:
         **kwargs,
     ) -> tuple[pd.Series, dict]:
         """
-        Acepta:
-          - objetos con .optimizar(returns, **kwargs) -> (w, meta) o w
-          - o funciones callables(returns, **kwargs) -> (w, meta) o w
+        Accepts:
+          - objects with `.optimizar(returns, **kwargs)` returning `(w, meta)` or `w`
+          - callables with `(returns, **kwargs)` returning `(w, meta)` or `w`
         """
         if hasattr(constructor, "optimizar"):
             res = constructor.optimizar(asset_returns, **kwargs)
@@ -113,7 +106,7 @@ class HRPStyle:
 
         meta = meta or {}
 
-        # Nos aseguramos de tener una Serie bien indexada
+        # Make sure we always end up with a properly indexed Series.
         if not isinstance(w, pd.Series):
             w = pd.Series(w, index=asset_returns.columns, dtype=float)
 
@@ -129,15 +122,15 @@ class HRPStyle:
         **kwargs,
     ) -> tuple[pd.Series, dict]:
         """
-        Método que usa Portfolio.construir.
-        Recibe retornos de assets (fechas x activos) y regresa (weights, meta).
+        Method used by `Portfolio.construir`.
+        It receives asset returns (dates x assets) and returns `(weights, meta)`.
         """
         n_clusters = kwargs.pop("n_clusters", self.n_clusters)
 
-        # 1) Distancias
+        # 1) Distances.
         dist = self.distance_func(asset_returns)
 
-        # 2) Clusters
+        # 2) Clusters.
         clusters = self.clustering_func(dist, n_clusters=n_clusters)
 
         cluster_returns: dict[str, pd.Series] = {}
@@ -150,7 +143,7 @@ class HRPStyle:
             "hrp_clusters": clusters,
         }
 
-        # 3) Dentro de cada cluster
+        # 3) Build each cluster locally.
         last_inner_meta: dict[str, Any] = {}
         for idx, assets in enumerate(clusters):
             name = f"C{idx}"
@@ -161,29 +154,29 @@ class HRPStyle:
 
             w_local = w_local / w_local.sum()
             local_weights[name] = w_local
-            cluster_returns[name] = (sub_ret @ w_local).rename(name) #ACA SE CONTRUYE LA SERE DE PORTAFOIOLIOS DE CADA CLUSTER
+            # Build the cluster-level return series that will feed the outer allocator.
+            cluster_returns[name] = (sub_ret @ w_local).rename(name)
 
-        # 4) Portafolio de portafolios (clusters como "activos")
-        clusters_df = pd.DataFrame(cluster_returns)  # fechas x clusters
+        # 4) Portfolio of portfolios (clusters treated as "assets").
+        clusters_df = pd.DataFrame(cluster_returns)  # dates x clusters
         w_clusters, outer_meta = self._run_constructor(self.outer_constructor, clusters_df)
 
         w_clusters = w_clusters / w_clusters.sum()
 
-        # 5) Combinar: W_cluster * w_local
+        # 5) Combine: W_cluster * w_local.
         final_weights = pd.Series(0.0, index=asset_returns.columns, dtype=float)
 
         for name, w_local in local_weights.items():
-            W_c = float(w_clusters[name])
-            final_weights[w_local.index] += W_c * w_local
+            cluster_weight = float(w_clusters[name])
+            final_weights[w_local.index] += cluster_weight * w_local
 
         final_weights = final_weights / final_weights.sum()
 
-        # meta final (puedes ajustar lo que quieras guardar)
+        # Final metadata. Adjust this block if you want to store more diagnostics.
         meta.update({f"hrp_inner_{k}": v for k, v in (last_inner_meta or {}).items()})
         meta.update({f"hrp_outer_{k}": v for k, v in (outer_meta or {}).items()})
 
-        
-        # Guardar diagnósticos en el propio HRPStyle
+        # Keep diagnostics on the HRPStyle instance itself.
         self.last_dist = dist
         self.last_clusters = clusters
         self.last_cluster_returns = pd.DataFrame(cluster_returns)
@@ -193,13 +186,10 @@ class HRPStyle:
 
         return final_weights, meta
 
-
     def __call__(self, asset_returns: pd.DataFrame, **kwargs) -> pd.Series:
         """
-        Por si quieres usar HRPStyle como función directa: hrp(returns).
-        Portfolio.construir NO usa esto, sino .optimizar.
+        Convenience path if you want to call HRPStyle directly: `hrp(returns)`.
+        `Portfolio.construir` does not use this method; it calls `.optimizar`.
         """
         w, _ = self.optimizar(asset_returns, **kwargs)
         return w
-
-

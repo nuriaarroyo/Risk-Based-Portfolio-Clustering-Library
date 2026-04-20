@@ -39,11 +39,11 @@ def yfinance_loader(
     **kwargs,
 ) -> pd.DataFrame:
     """
-    Descarga precios desde Yahoo Finance y devuelve una matriz de cierres.
+    Download prices from Yahoo Finance and return a close-price matrix.
 
-    La descarga se divide en bloques para soportar listas grandes de tickers.
-    Opcionalmente puede guardar la descarga completa en CSV, reutilizarla a
-    traves de `local_loader`, y registrar snapshots en un catalogo JSON.
+    Downloads are split into batches so large ticker lists remain manageable.
+    The loader can optionally save the full download as CSV, reuse it through
+    `local_loader`, and register snapshots in a JSON catalog.
     """
     ticker_list = _normalize_tickers(tickers)
     if not ticker_list:

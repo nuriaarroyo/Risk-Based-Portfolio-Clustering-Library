@@ -1,39 +1,54 @@
-# portafolios/metrics/asset.py
 from __future__ import annotations
-import pandas as pd
-import numpy as np
+
 from typing import Optional
 
+import numpy as np
+import pandas as pd
+
+
 def returns_simple(prices: pd.DataFrame) -> pd.DataFrame:
-    """R_t = P_t / P_{t-1} - 1"""
+    """R_t = P_t / P_{t-1} - 1."""
     return prices.pct_change().dropna()
 
+
 def returns_log(prices: pd.DataFrame) -> pd.DataFrame:
-    """r_t = ln(P_t) - ln(P_{t-1})"""
+    """r_t = ln(P_t) - ln(P_{t-1})."""
     return np.log(prices).diff().dropna()
+
 
 def mean_return(returns: pd.DataFrame, ann_factor: Optional[int] = None) -> pd.Series:
     """
-    Media por periodo del DataFrame de rendimientos.
-    - Si ann_factor is None → per-period mean (N-periodos, sin anualizar).
-    - Si ann_factor es int  → anualiza: mean * ann_factor.
+    Per-period mean of the returns DataFrame.
+    - If `ann_factor` is None -> per-period mean.
+    - If `ann_factor` is an int -> annualize as mean * ann_factor.
     """
     mu = returns.mean()
     return mu if ann_factor is None else mu * ann_factor
 
-def volatility(returns: pd.DataFrame, ann_factor: Optional[int] = None, ddof: int = 1) -> pd.Series:
+
+def volatility(
+    returns: pd.DataFrame,
+    ann_factor: Optional[int] = None,
+    ddof: int = 1,
+) -> pd.Series:
     """
-    Volatilidad (desv. estándar) del DataFrame de rendimientos.
-    - Si ann_factor is None → per-period std (sobre N observaciones de la ventana).
-    - Si ann_factor es int  → anualiza: std * sqrt(ann_factor).
+    Standard-deviation volatility of the returns DataFrame.
+    - If `ann_factor` is None -> per-period standard deviation.
+    - If `ann_factor` is an int -> annualize as std * sqrt(ann_factor).
     """
     sigma = returns.std(ddof=ddof)
     return sigma if ann_factor is None else sigma * np.sqrt(ann_factor)
-def covariance_matrix(returns: pd.DataFrame, ann_factor: Optional[int] = None, ddof: int = 1) -> pd.DataFrame:
+
+
+def covariance_matrix(
+    returns: pd.DataFrame,
+    ann_factor: Optional[int] = None,
+    ddof: int = 1,
+) -> pd.DataFrame:
     """
-    Matriz de covarianzas entre activos.
-    - Si ann_factor is None → per-period covariance.
-    - Si ann_factor es int  → anualiza: cov * ann_factor.
+    Asset covariance matrix.
+    - If `ann_factor` is None -> per-period covariance.
+    - If `ann_factor` is an int -> annualize as cov * ann_factor.
     """
     cov = returns.cov(ddof=ddof)
     return cov if ann_factor is None else cov * ann_factor
@@ -41,6 +56,6 @@ def covariance_matrix(returns: pd.DataFrame, ann_factor: Optional[int] = None, d
 
 def correlation_matrix(returns: pd.DataFrame) -> pd.DataFrame:
     """
-    Matriz de correlaciones entre activos (adimensional).
+    Asset correlation matrix.
     """
     return returns.corr()

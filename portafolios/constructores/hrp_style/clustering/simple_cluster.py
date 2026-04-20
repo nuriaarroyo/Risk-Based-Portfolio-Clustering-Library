@@ -1,10 +1,9 @@
-# portafolios/constructores/hrp_style/clustering/simple_hierarchical.py
 from __future__ import annotations
 
 from typing import List
-import pandas as pd
 
-from scipy.cluster.hierarchy import linkage, fcluster
+import pandas as pd
+from scipy.cluster.hierarchy import fcluster, linkage
 from scipy.spatial.distance import squareform
 
 
@@ -14,27 +13,27 @@ def hierarchical_clusters(
     method: str = "average",
 ) -> List[list[str]]:
     """
-    Hace clustering jerárquico sobre la matriz de distancias y regresa
-    una lista de clusters (cada cluster es una lista de tickers).
+    Run hierarchical clustering on the distance matrix and return
+    a list of clusters (each cluster is a list of tickers).
 
-    dist_matrix: DataFrame cuadrado (assets x assets)
-    n_clusters: número de clusters deseados
+    dist_matrix: square DataFrame (assets x assets)
+    n_clusters: desired number of clusters
     """
-    # scipy espera un vector "condensed" de distancias
+    # scipy expects a condensed distance vector.
     dist_condensed = squareform(dist_matrix.values, checks=False)
 
-    # linkage jerárquico
-    Z = linkage(dist_condensed, method=method)
+    # Hierarchical linkage.
+    linkage_matrix = linkage(dist_condensed, method=method)
 
-    # etiquetas de cluster 1..n_clusters
-    labels = fcluster(Z, t=n_clusters, criterion="maxclust")
+    # Cluster labels 1..n_clusters.
+    labels = fcluster(linkage_matrix, t=n_clusters, criterion="maxclust")
 
     tickers = dist_matrix.index.to_list()
     clusters: list[list[str]] = []
 
-    for k in range(1, n_clusters + 1):
-        assets_k = [asset for asset, lab in zip(tickers, labels) if lab == k]
-        if assets_k:
-            clusters.append(assets_k)
+    for cluster_id in range(1, n_clusters + 1):
+        assets_in_cluster = [asset for asset, label in zip(tickers, labels) if label == cluster_id]
+        if assets_in_cluster:
+            clusters.append(assets_in_cluster)
 
     return clusters

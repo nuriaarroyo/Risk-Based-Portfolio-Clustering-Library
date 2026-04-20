@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from typing import Optional
 
 import pandas as pd
@@ -13,10 +14,10 @@ def get_distmat(
     file_path: Optional[str] = None,
 ) -> go.Figure:
     """
-    Heatmap Plotly de la matriz de distancias usada por HRP.
+    Return the HRP distance matrix used by the last run.
 
-    - Si ordenar_por_clusters=True, reordena filas/columnas según los clusters.
-    - Si file_path se da, guarda el plot como HTML en esa ruta.
+    - If `ordenar_por_clusters=True`, rows and columns are reordered by cluster.
+    - If `file_path` is provided, the plot can be saved as HTML at that path.
     """
     if not hasattr(hrp, "last_dist"):
         raise RuntimeError("Este HRPStyle no tiene 'last_dist'. ¿Ya corriste p.construir(hrp)?")

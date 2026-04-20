@@ -1,8 +1,7 @@
-# portafolios/plots/barpy.py
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, Sequence, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, Sequence, Union
 
 import numpy as np
 import pandas as pd
@@ -18,21 +17,21 @@ def barras_portfolio(
     min_weight: float = 0.0,
 ) -> None:
     """
-    Grafica barras de los pesos del portafolio.
+    Plot portfolio weights as a bar chart.
 
-    Usa:
-    - portfolio.asset_returns.columns  como universo de activos
-    - portfolio.weights                como pesos por defecto
-    - portfolio.info["constructor_display_name"] para el título (si existe)
+    Uses:
+    - `portfolio.asset_returns.columns` as the asset universe
+    - `portfolio.weights` as the default weights
+    - `portfolio.info["constructor_display_name"]` for the title, when available
 
-    - Si `pesos` es None, usa `portfolio.weights`.
-    - Alinea a asset_returns.columns; si faltan pesos en una Series, rellena con 0.
-    - Normaliza si la suma != 1.
-    - Puede filtrar pesos muy pequeños (min_weight).
-    - Guarda HTML en el directorio de salida del universo o en ./outputs/plots/.
+    - If `pesos` is None, uses `portfolio.weights`.
+    - Aligns to `asset_returns.columns`; missing Series entries are filled with 0.
+    - Normalizes if the weights do not sum to 1.
+    - Can filter very small weights with `min_weight`.
+    - Saves HTML to the configured universe output directory or `./outputs/plots/`.
     """
 
-    # --- universo de activos ---
+    # Asset universe.
     if portfolio.asset_returns is None:
         print("No hay retornos de activos. Llama primero a preparar_datos().")
         return
@@ -42,7 +41,7 @@ def barras_portfolio(
         print("No hay tickers en asset_returns.")
         return
 
-    # --- obtener / alinear pesos ---
+    # Get and align weights.
     if pesos is None:
         if getattr(portfolio, "weights", None) is None:
             print("No hay pesos en el objeto. Llama a construir(...) o pasa `pesos`.")
@@ -54,7 +53,7 @@ def barras_portfolio(
             w = np.asarray(portfolio.weights, dtype=float)
             if len(w) != len(tickers):
                 raise ValueError(
-                    f"Length of weights ({len(w)}) no coincide con número de activos ({len(tickers)})."
+                    f"Length of weights ({len(w)}) no coincide con numero de activos ({len(tickers)})."
                 )
     elif isinstance(pesos, pd.Series):
         s = pesos.reindex(tickers).fillna(0.0)
@@ -63,10 +62,10 @@ def barras_portfolio(
         w = np.asarray(pesos, dtype=float)
         if len(w) != len(tickers):
             raise ValueError(
-                f"Length of weights ({len(w)}) no coincide con número de activos ({len(tickers)})."
+                f"Length of weights ({len(w)}) no coincide con numero de activos ({len(tickers)})."
             )
 
-    # --- limpieza / normalización ---
+    # Clean and normalize.
     if not np.isfinite(w).all():
         raise ValueError("Los pesos contienen NaN o Inf.")
 
@@ -79,16 +78,16 @@ def barras_portfolio(
     if not np.isclose(ssum, 1.0, atol=1e-8):
         w = w / ssum
 
-    # --- filtrar pesos pequeños ---
+    # Filter small weights.
     mask = w > min_weight
     w_plot = w[mask]
     t_plot = [t for t, m in zip(tickers, mask) if m]
 
     if len(w_plot) == 0:
-        print(f"Todos los pesos son ≤ {min_weight:.2%}; nada que graficar.")
+        print(f"Todos los pesos son <= {min_weight:.2%}; nada que graficar.")
         return
 
-    # --- gráfico ---
+    # Plot.
     fig = go.Figure(
         data=[
             go.Bar(
@@ -106,7 +105,7 @@ def barras_portfolio(
     )
 
     fig.update_layout(
-        title=f"Distribución de Pesos del {constructor_name}",
+        title=f"Distribucion de Pesos del {constructor_name}",
         xaxis_title="Activos",
         yaxis_title="Peso",
         width=1400,
@@ -116,15 +115,22 @@ def barras_portfolio(
         paper_bgcolor="white",
     )
 
-    # --- guardar y mostrar ---
-    safe_name = str(constructor_name).replace(" ", "_").replace("(", "").replace(")", "").replace("/", "_").replace("\\", "_")
+    # Save and display.
+    safe_name = (
+        str(constructor_name)
+        .replace(" ", "_")
+        .replace("(", "")
+        .replace(")", "")
+        .replace("/", "_")
+        .replace("\\", "_")
+    )
 
     plots_dir = Path(getattr(portfolio, "plots_dir", Path.cwd() / "outputs" / "plots"))
     plots_dir.mkdir(parents=True, exist_ok=True)
 
     out_path = plots_dir / f"portfolio_barras_{safe_name}.html"
     fig.write_html(str(out_path))
-    print(f"Gráfica de barras guardada en: {out_path}")
+    print(f"Grafica de barras guardada en: {out_path}")
 
-    # para nb / navegador
+    # Show for notebook/browser workflows.
     fig.show()

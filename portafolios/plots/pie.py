@@ -1,8 +1,7 @@
-# portafolios/plots/pie.py
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional, Sequence, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, Sequence, Union
 
 import numpy as np
 import pandas as pd
@@ -18,20 +17,20 @@ def pastel_portfolio(
     min_weight: float = 1e-3,
 ) -> None:
     """
-    Grafica un pastel (donut) de los pesos de un PortfolioUniverse.
+    Plot a donut chart of `PortfolioUniverse` weights.
 
-    Usa únicamente:
-    - portfolio.asset_returns.columns  (universo de activos)
-    - portfolio.weights                (pesos construidos)
-    - portfolio.info["constructor_display_name"] (para el título, si existe)
+    Uses only:
+    - `portfolio.asset_returns.columns` (asset universe)
+    - `portfolio.weights` (constructed weights)
+    - `portfolio.info["constructor_display_name"]` for the title, when available
 
-    Si `pesos` es None, usa `portfolio.weights`.
-    Filtra pesos muy pequeños (min_weight).
-    Guarda el HTML en el directorio de salida del universo o, si no existe,
-    en ./outputs/plots/.
+    If `pesos` is None, uses `portfolio.weights`.
+    Filters very small weights with `min_weight`.
+    Saves the HTML to the configured output directory or, if missing,
+    to `./outputs/plots/`.
     """
 
-    # --- universo de activos ---
+    # Asset universe.
     if portfolio.asset_returns is None:
         print("No hay retornos de activos. Llama primero a preparar_datos().")
         return
@@ -42,38 +41,38 @@ def pastel_portfolio(
         print("No hay tickers en asset_returns.")
         return
 
-    # --- obtener / alinear pesos ---
+    # Get and align weights.
     if pesos is None:
         if getattr(portfolio, "weights", None) is None:
             print("No hay pesos en el objeto. Llama a construir(...) primero o pasa 'pesos'.")
             return
 
-        # se espera que weights sea una Serie indexada por tickers
+        # `weights` is expected to be a Series indexed by tickers.
         if isinstance(portfolio.weights, pd.Series):
             w = portfolio.weights.reindex(tickers).fillna(0.0).values.astype(float)
         else:
-            # por si algún constructor devuelve array; asumimos mismo orden que columns
+            # Guard against constructors that return arrays; assume column order.
             w = np.asarray(portfolio.weights, dtype=float)
             if len(w) != len(tickers):
                 raise ValueError(
-                    f"Length of weights ({len(w)}) no coincide con número de activos ({len(tickers)})."
+                    f"Length of weights ({len(w)}) no coincide con numero de activos ({len(tickers)})."
                 )
     elif isinstance(pesos, pd.Series):
-        # alineamos al universo de asset_returns
+        # Align with the `asset_returns` universe.
         s = pesos.reindex(tickers).fillna(0.0)
         w = s.values.astype(float)
     else:
         w = np.asarray(pesos, dtype=float)
         if len(w) != len(tickers):
             raise ValueError(
-                f"Length of weights ({len(w)}) no coincide con número de activos ({len(tickers)})."
+                f"Length of weights ({len(w)}) no coincide con numero de activos ({len(tickers)})."
             )
 
-    # --- limpieza y normalización ---
+    # Clean and normalize.
     if not np.isfinite(w).all():
         raise ValueError("Los pesos contienen NaN o Inf.")
 
-    # recortar negativos minúsculos numéricos
+    # Trim tiny numerical negatives.
     w[w < 0] = np.maximum(w[w < 0], -1e-12)
 
     ssum = w.sum()
@@ -84,16 +83,16 @@ def pastel_portfolio(
     if not np.isclose(ssum, 1.0, atol=1e-8):
         w = w / ssum
 
-    # --- filtrar pesos pequeños ---
+    # Filter small weights.
     mask = w > min_weight
     pesos_filtrados = w[mask].tolist()
-    tickers_filtrados = [t for t, m in zip(tickers, mask) if m]
+    tickers_filtrados = [ticker for ticker, keep in zip(tickers, mask) if keep]
 
     if len(pesos_filtrados) == 0:
-        print(f"Todos los pesos son ≤ {min_weight:.2%}; nada que graficar.")
+        print(f"Todos los pesos son <= {min_weight:.2%}; nada que graficar.")
         return
 
-    # --- tamaños y texto según número de activos totales ---
+    # Adapt sizing and text to the total asset count.
     n_activos = len(tickers)
     if n_activos <= 20:
         width, height = 1200, 800
@@ -108,13 +107,13 @@ def pastel_portfolio(
         text_size = 10
         legend_size = 8
 
-    # --- detectar si es casi equiponderado (naive) ---
+    # Detect near-equal-weight allocations.
     es_naive = False
-    p_arr = np.array(pesos_filtrados, dtype=float)
-    if p_arr.mean() > 0 and (p_arr.std() / p_arr.mean()) < 0.02 and len(p_arr) > 10:
+    weight_array = np.array(pesos_filtrados, dtype=float)
+    if weight_array.mean() > 0 and (weight_array.std() / weight_array.mean()) < 0.02 and len(weight_array) > 10:
         es_naive = True
 
-    # --- tamaño del agujero ---
+    # Donut-hole size.
     if len(pesos_filtrados) < len(tickers) * 0.5:
         hole_size = 0.1
     elif es_naive:
@@ -122,15 +121,15 @@ def pastel_portfolio(
     else:
         hole_size = 0.3
 
-    # --- colores / efecto pull ---
+    # Colors and pull effect.
     if es_naive:
-        base_colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+        base_colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd"]
         reps = (len(tickers_filtrados) // len(base_colors)) + 1
-        colors = (base_colors * reps)[:len(tickers_filtrados)]
+        colors = (base_colors * reps)[: len(tickers_filtrados)]
         pull_effect = [0.05] * len(tickers_filtrados)
     else:
         colors = None
-        pull_effect = [0.1 if p_val > 0.05 else 0 for p_val in pesos_filtrados]
+        pull_effect = [0.1 if weight > 0.05 else 0 for weight in pesos_filtrados]
 
     fig = go.Figure(
         data=[
@@ -148,7 +147,7 @@ def pastel_portfolio(
         ]
     )
 
-    # --- título bonito usando info["constructor"] si existe ---
+    # Build a readable title using `info["constructor"]` when available.
     constructor_name = portfolio.info.get(
         "constructor_display_name",
         portfolio.info.get("constructor", "Portfolio"),
@@ -159,13 +158,13 @@ def pastel_portfolio(
         title_text = (
             f"Pesos del {constructor_name}"
             f"<br><sub>Se muestran {len(tickers_filtrados)} de {len(tickers)} activos "
-            f"(excluidos {activos_excluidos} con peso ≤ {min_weight:.2%})</sub>"
+            f"(excluidos {activos_excluidos} con peso <= {min_weight:.2%})</sub>"
         )
     elif es_naive:
         title_text = (
             f"Pesos del {constructor_name}"
             f"<br><sub>Portfolio equiponderado: {len(tickers_filtrados)} activos "
-            f"≈ {pesos_filtrados[0]:.1%} cada uno</sub>"
+            f"~ {pesos_filtrados[0]:.1%} cada uno</sub>"
         )
     else:
         title_text = f"Pesos del {constructor_name}"
@@ -190,8 +189,15 @@ def pastel_portfolio(
         ),
     )
 
-    # --- guardar en el directorio de salida configurado ---
-    safe_name = str(constructor_name).replace(" ", "_").replace("(", "").replace(")", "").replace("/", "_").replace("\\", "_")
+    # Save to the configured output directory.
+    safe_name = (
+        str(constructor_name)
+        .replace(" ", "_")
+        .replace("(", "")
+        .replace(")", "")
+        .replace("/", "_")
+        .replace("\\", "_")
+    )
 
     plots_dir = Path(getattr(portfolio, "plots_dir", Path.cwd() / "outputs" / "plots"))
     plots_dir.mkdir(parents=True, exist_ok=True)
@@ -200,4 +206,4 @@ def pastel_portfolio(
     fig.write_html(str(out_path))
     fig.show()
 
-    print(f"Gráfica de pastel guardada en: {out_path}")
+    print(f"Grafica de pastel guardada en: {out_path}")

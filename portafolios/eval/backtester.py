@@ -11,7 +11,7 @@ from ..core.types import BacktestResult
 
 class Backtester:
     """
-    Evalua pesos fijos sobre un periodo posterior al de construccion.
+    Evaluate fixed weights over a period that starts after construction ends.
     """
 
     def __init__(self, universe, construction_name: str, *, ann_factor: int = 252) -> None:

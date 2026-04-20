@@ -11,7 +11,7 @@ from ..core.types import MonteCarloResult
 
 class MonteCarloEngine:
     """
-    Simula la distribucion futura de un portafolio de pesos fijos.
+    Simulate the future distribution of a fixed-weight portfolio.
     """
 
     def __init__(self, universe, construction_name: str, *, seed: Optional[int] = None) -> None:

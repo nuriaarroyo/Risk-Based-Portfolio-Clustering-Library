@@ -19,7 +19,7 @@ class BaseConstructor(ABC):
     @abstractmethod
     def optimizar(self, returns: pd.DataFrame, **kwargs) -> tuple[pd.Series, dict[str, Any]]:
         """
-        Recibe retornos del universo y devuelve pesos + metadatos.
+        Receive universe returns and return weights plus metadata.
         """
 
     def build(self, universe, name: str, **kwargs) -> ConstructionResult:
@@ -36,8 +36,14 @@ class BaseConstructor(ABC):
         if meta:
             metrics.update({f"meta_{key}": value for key, value in meta.items()})
 
-        construction_start = kwargs.get("construction_start", getattr(universe, "construction_start", getattr(universe, "start", None)))
-        construction_end = kwargs.get("construction_end", getattr(universe, "construction_end", getattr(universe, "end", None)))
+        construction_start = kwargs.get(
+            "construction_start",
+            getattr(universe, "construction_start", getattr(universe, "start", None)),
+        )
+        construction_end = kwargs.get(
+            "construction_end",
+            getattr(universe, "construction_end", getattr(universe, "end", None)),
+        )
 
         return ConstructionResult(
             name=name,

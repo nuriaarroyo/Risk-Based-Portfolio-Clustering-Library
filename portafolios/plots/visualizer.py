@@ -10,7 +10,7 @@ import plotly.graph_objects as go
 
 class PortfolioVisualizer:
     """
-    Capa de visualizacion Plotly para un universe con construcciones guardadas.
+    Plotly visualization layer for a universe with saved constructions.
     """
 
     def __init__(self, universe) -> None:

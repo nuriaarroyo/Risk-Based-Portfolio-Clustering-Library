@@ -1,34 +1,34 @@
-# portafolios/constructores/naive_rp.py
 from __future__ import annotations
 
 from typing import Any
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 
 from .base import BaseConstructor
 
 
 class NaiveRiskParity(BaseConstructor):
     """
-    Constructor Naive Risk Parity (NRP).
+    Naive Risk Parity (NRP) constructor.
 
-    Asigna pesos proporcionales al inverso de la volatilidad:
-        w_i ∝ 1 / sigma_i
+    Assign weights proportional to inverse volatility:
+        w_i proportional to 1 / sigma_i
 
-    Donde sigma_i es la desviación estándar de los retornos del activo i.
+    where sigma_i is the standard deviation of asset i returns.
 
-    Uso típico:
+    Typical usage:
 
         from portafolios.constructores.naive_risk_parity import NaiveRiskParity
 
         nrp = NaiveRiskParity()
         w, meta = nrp.optimizar(asset_returns)
 
-    Es compatible con PortfolioUniverse.construir:
+    It is compatible with `PortfolioUniverse.construir`:
 
         p.construir(NaiveRiskParity())
 
-    y también puede usarse como inner/outer en HRPStyle:
+    It can also be used as the inner/outer allocator in `HRPStyle`:
 
         hrp = HRPStyle(
             distance="deprado",
@@ -47,8 +47,8 @@ class NaiveRiskParity(BaseConstructor):
         nombre: str | None = None,
     ) -> None:
         """
-        min_vol: piso para la volatilidad, para evitar divisiones por cero.
-        display_name: etiqueta amigable para tablas, plots y reportes.
+        min_vol: volatility floor to avoid divide-by-zero issues.
+        display_name: friendly label for tables, plots, and reports.
         """
         self.min_vol = float(min_vol)
         self.method_id = "naive_risk_parity"
@@ -60,24 +60,24 @@ class NaiveRiskParity(BaseConstructor):
         **kwargs: Any,
     ) -> tuple[pd.Series, dict[str, Any]]:
         """
-        Recibe:
-            asset_returns: DataFrame (fechas x activos)
+        Receives:
+            asset_returns: DataFrame (dates x assets)
 
-        Regresa:
-            w: Serie con pesos (index = nombres de activos, suma = 1)
-            meta: diccionario con metadatos del procedimiento
+        Returns:
+            w: Series of weights (index = asset names, sum = 1)
+            meta: dictionary with procedure metadata
         """
         if asset_returns is None or asset_returns.empty:
-            raise ValueError("asset_returns no puede ser None ni vacío.")
+            raise ValueError("asset_returns no puede ser None ni vacio.")
 
-        # 1) Volatilidades por activo
-        #    (puedes cambiar ddof=1 ó usar .std() tal cual)
+        # 1) Per-asset volatilities.
+        #    You can change ddof=1 or use .std() directly if preferred.
         sigma = asset_returns.std(ddof=1)
 
-        # 2) Piso de volatilidad para evitar 1/0
+        # 2) Volatility floor to avoid 1/0.
         sigma_clipped = sigma.clip(lower=self.min_vol)
 
-        # 3) Pesos proporcionales a 1/sigma
+        # 3) Weights proportional to 1/sigma.
         inv_sigma = 1.0 / sigma_clipped
         w = inv_sigma / inv_sigma.sum()
 
