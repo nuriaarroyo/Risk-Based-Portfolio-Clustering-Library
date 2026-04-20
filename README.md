@@ -143,10 +143,17 @@ outputs/data_exports/final_experimental_setup/
 
 Large generated run artifacts are treated as reproducible local outputs rather than the main thesis-facing repository surface.
 
+## Documentation
+
+- [docs/thesis-map.md](docs/thesis-map.md) gives a quick guide to where thesis-facing code, notebooks, and outputs live.
+- [docs/reproducibility.md](docs/reproducibility.md) lists the main commands for rerunning the thesis pipeline.
+- [notebooks/README.md](notebooks/README.md) explains the notebook layout in more detail.
+
 ## Repository Structure
 
 ```text
 honores_actuaria/
+|- docs/               # thesis map and reproducibility notes
 |- portafolios/        # active library code
 |- scripts/            # runnable experiment pipelines
 |- legacy/             # archived pre-refactor code
