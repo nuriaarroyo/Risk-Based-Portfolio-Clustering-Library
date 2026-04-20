@@ -45,7 +45,12 @@ If you want to use downloaded data instead of the processed local dataset:
 python scripts/run_final_experimental_setup.py --source yfinance
 ```
 
-This mode can write a raw snapshot file and depends on network access and current Yahoo Finance availability. If the configured snapshot file already exists, the loader can still reuse it through the same local CSV parsing path.
+This mode now follows a simple reuse-first rule:
+
+- if `outputs/final_experimental_setup/data/yfinance_final_setup_raw.csv` already exists, the runner reuses it through `local_loader`
+- if it does not exist, the runner downloads it with `yfinance`, saves it to that exact path, and registers it in `outputs/final_experimental_setup/data/yfinance_snapshot_catalog.json`
+
+That keeps `--source yfinance` as the main entrypoint while still making the saved snapshot reusable as a local CSV source.
 
 ## Where To Read Results
 

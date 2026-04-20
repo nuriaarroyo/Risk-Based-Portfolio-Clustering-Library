@@ -74,6 +74,7 @@ class YFinanceLoader(BaseDataLoader):
         save_path: str | Path | None = None,
         use_saved_data: bool = False,
         save_download: bool = False,
+        catalog_path: str | Path | None = None,
         fallback_to_saved_data: bool = True,
         max_retries: int = 3,
         retry_wait: float = 2.0,
@@ -96,6 +97,7 @@ class YFinanceLoader(BaseDataLoader):
         self.save_path = save_path
         self.use_saved_data = use_saved_data
         self.save_download = save_download
+        self.catalog_path = catalog_path
         self.fallback_to_saved_data = fallback_to_saved_data
         self.max_retries = max_retries
         self.retry_wait = retry_wait
@@ -120,6 +122,7 @@ class YFinanceLoader(BaseDataLoader):
             save_path=self.save_path,
             use_saved_data=self.use_saved_data,
             save_download=self.save_download,
+            catalog_path=self.catalog_path,
             fallback_to_saved_data=self.fallback_to_saved_data,
             max_retries=self.max_retries,
             retry_wait=self.retry_wait,
@@ -135,5 +138,6 @@ class YFinanceLoader(BaseDataLoader):
             "n_assets": len(prices.columns),
             "n_observations": len(prices),
             "save_path": str(self.save_path) if self.save_path is not None else None,
+            "catalog_path": str(self.catalog_path) if self.catalog_path is not None else None,
             "used_saved_data": self.use_saved_data,
         }

@@ -141,6 +141,11 @@ outputs/data_exports/final_experimental_setup/
 `- experiment_config.json
 ```
 
+When the thesis runner uses `--source yfinance`, it reuses the saved snapshot at
+`outputs/final_experimental_setup/data/yfinance_final_setup_raw.csv` if it already
+exists; otherwise it downloads that file and records it in
+`outputs/final_experimental_setup/data/yfinance_snapshot_catalog.json`.
+
 Large generated run artifacts are treated as reproducible local outputs rather than the main thesis-facing repository surface.
 
 ## Documentation

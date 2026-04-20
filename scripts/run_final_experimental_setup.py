@@ -40,6 +40,7 @@ FRAMEWORK_DIR = OUTPUT_DIR / "framework_runs"
 
 PROCESSED_DATA_PATH = PROJECT_ROOT / "data" / "processed" / "data_clean_stock_data.csv"
 YF_SAVE_PATH = DATA_DIR / "yfinance_final_setup_raw.csv"
+YF_CATALOG_PATH = DATA_DIR / "yfinance_snapshot_catalog.json"
 
 ANNUALIZATION_FACTOR = 252
 MC_SIMULATIONS = 2_000
@@ -287,6 +288,7 @@ def load_price_source(
             save_path=YF_SAVE_PATH,
             use_saved_data=YF_SAVE_PATH.exists(),
             save_download=True,
+            catalog_path=YF_CATALOG_PATH,
             fallback_to_saved_data=True,
             batch_size=50,
             progress=False,
@@ -752,6 +754,8 @@ def main() -> None:
     config_payload = {
         "source": args.source,
         "local_path": str(resolved_local_path) if resolved_local_path is not None else None,
+        "yfinance_snapshot_path": str(YF_SAVE_PATH) if args.source == "yfinance" else None,
+        "yfinance_catalog_path": str(YF_CATALOG_PATH) if args.source == "yfinance" else None,
         "construction_dates": CONSTRUCTION_DATES,
         "estimation_windows_months": ESTIMATION_WINDOWS_MONTHS,
         "evaluation": "12-month forward out-of-sample backtest",
