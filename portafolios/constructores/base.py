@@ -32,7 +32,12 @@ class BaseConstructor(ABC):
 
         weights, meta = self.optimizar(returns, **kwargs)
         weights = weights.reindex(returns.columns).fillna(0.0).sort_index()
-        metrics = universe.make_basic_metrics(weights, returns=returns, ann_factor=kwargs.get("ann_factor"))
+        metrics = universe.make_basic_metrics(
+            weights,
+            returns=returns,
+            ann_factor=kwargs.get("ann_factor"),
+            rf_per_period=kwargs.get("rf_per_period", getattr(self, "rf_per_period", 0.0)),
+        )
         if meta:
             metrics.update({f"meta_{key}": value for key, value in meta.items()})
 

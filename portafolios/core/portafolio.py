@@ -442,6 +442,27 @@ class PortfolioUniverse:
                 cluster_weights=getattr(constructor, "last_w_clusters", pd.Series(dtype=float)).copy(),
                 local_weights=local_weights,
                 final_weights=getattr(constructor, "last_final_weights", pd.Series(dtype=float)).copy(),
+                linkage_matrix=(
+                    getattr(constructor, "last_linkage_matrix", None).copy()
+                    if getattr(constructor, "last_linkage_matrix", None) is not None
+                    else None
+                ),
+                cluster_labels=(
+                    getattr(constructor, "last_cluster_labels", None).copy()
+                    if getattr(constructor, "last_cluster_labels", None) is not None
+                    else None
+                ),
+                cluster_assets={
+                    cluster_name: list(assets)
+                    for cluster_name, assets in getattr(constructor, "last_cluster_assets", {}).items()
+                },
+                inner_metadata_by_cluster={
+                    cluster_name: dict(meta)
+                    for cluster_name, meta in getattr(constructor, "last_inner_meta_by_cluster", {}).items()
+                },
+                outer_metadata=dict(getattr(constructor, "last_outer_meta", {}) or {}),
+                distance_name=getattr(constructor, "distance_name", None),
+                clustering_name=getattr(constructor, "clustering_name", None),
             )
 
         return diagnostics
@@ -485,7 +506,12 @@ class PortfolioUniverse:
         display_name = getattr(constructor, "display_name", getattr(constructor, "nombre", method_id))
         name = label or self._next_label(method_id)
         weights = weights.reindex(construction_returns.columns).fillna(0.0).sort_index()
-        metrics = self._make_basic_metrics(weights, returns=construction_returns, ann_factor=kwargs.get("ann_factor"))
+        metrics = self._make_basic_metrics(
+            weights,
+            returns=construction_returns,
+            ann_factor=kwargs.get("ann_factor"),
+            rf_per_period=kwargs.get("rf_per_period", getattr(constructor, "rf_per_period", 0.0)),
+        )
         if meta:
             metrics.update({f"meta_{key}": value for key, value in meta.items()})
 

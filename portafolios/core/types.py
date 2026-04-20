@@ -20,6 +20,13 @@ class HRPDiagnostics:
     cluster_weights: pd.Series
     local_weights: dict[str, pd.Series]
     final_weights: pd.Series
+    linkage_matrix: np.ndarray | None = None
+    cluster_labels: Optional[pd.Series] = None
+    cluster_assets: dict[str, list[str]] = field(default_factory=dict)
+    inner_metadata_by_cluster: dict[str, dict[str, Any]] = field(default_factory=dict)
+    outer_metadata: dict[str, Any] = field(default_factory=dict)
+    distance_name: Optional[str] = None
+    clustering_name: Optional[str] = None
 
 
 @dataclass(slots=True)

@@ -6,7 +6,7 @@ import pandas as pd
 
 from portafolios.constructores.equal_weight import EqualWeightConstructor
 
-from .clustering.simple_cluster import hierarchical_clusters
+from .clustering.simple_cluster import hierarchical_cluster_details, hierarchical_clusters
 from .distancias import corr, deprado
 
 
@@ -55,6 +55,7 @@ class HRPStyle:
         if isinstance(distance, str):
             try:
                 self.distance_func = DISTANCE_REGISTRY[distance]
+                self.distance_name = distance
             except KeyError:
                 raise ValueError(
                     f"Distancia desconocida: {distance}. "
@@ -62,6 +63,7 @@ class HRPStyle:
                 )
         elif callable(distance):
             self.distance_func = distance
+            self.distance_name = getattr(distance, "__name__", "custom_distance")
         else:
             raise TypeError("distance must be a string from DISTANCE_REGISTRY or a callable.")
 
@@ -70,10 +72,12 @@ class HRPStyle:
             if clustering == "hierarchical":
                 # Our simple hierarchical helper accepts (dist, n_clusters=...).
                 self.clustering_func = hierarchical_clusters
+                self.clustering_name = "hierarchical"
             else:
                 raise ValueError(f"Clustering desconocido: {clustering}")
         elif callable(clustering):
             self.clustering_func = clustering
+            self.clustering_name = getattr(clustering, "__name__", "custom_clustering")
         else:
             raise TypeError("clustering must be 'hierarchical' or a callable.")
 
@@ -131,29 +135,39 @@ class HRPStyle:
         dist = self.distance_func(asset_returns)
 
         # 2) Clusters.
-        clusters = self.clustering_func(dist, n_clusters=n_clusters)
+        clustering_details = None
+        if self.clustering_func is hierarchical_clusters:
+            clustering_details = hierarchical_cluster_details(dist, n_clusters=n_clusters)
+            clusters = clustering_details.clusters
+        else:
+            clusters = self.clustering_func(dist, n_clusters=n_clusters)
 
         cluster_returns: dict[str, pd.Series] = {}
         local_weights: dict[str, pd.Series] = {}
+        cluster_assets: dict[str, list[str]] = {}
+        inner_meta_by_cluster: dict[str, dict[str, Any]] = {}
 
         meta: dict[str, Any] = {
             "hrp_n_clusters": n_clusters,
-            "hrp_distance": getattr(self.distance_func, "__name__", str(self.distance_func)),
-            "hrp_clustering": getattr(self.clustering_func, "__name__", str(self.clustering_func)),
+            "hrp_distance": self.distance_name,
+            "hrp_clustering": self.clustering_name,
             "hrp_clusters": clusters,
         }
+        if clustering_details is not None:
+            meta["hrp_cluster_labels"] = clustering_details.labels.to_dict()
+            meta["hrp_linkage_matrix"] = clustering_details.linkage_matrix.tolist()
 
         # 3) Build each cluster locally.
-        last_inner_meta: dict[str, Any] = {}
         for idx, assets in enumerate(clusters):
             name = f"C{idx}"
             sub_ret = asset_returns[assets]
 
             w_local, inner_meta = self._run_constructor(self.inner_constructor, sub_ret)
-            last_inner_meta = inner_meta or last_inner_meta
+            inner_meta_by_cluster[name] = dict(inner_meta or {})
 
             w_local = w_local / w_local.sum()
             local_weights[name] = w_local
+            cluster_assets[name] = list(assets)
             # Build the cluster-level return series that will feed the outer allocator.
             cluster_returns[name] = (sub_ret @ w_local).rename(name)
 
@@ -173,7 +187,18 @@ class HRPStyle:
         final_weights = final_weights / final_weights.sum()
 
         # Final metadata. Adjust this block if you want to store more diagnostics.
-        meta.update({f"hrp_inner_{k}": v for k, v in (last_inner_meta or {}).items()})
+        shared_inner_meta: dict[str, Any] = {}
+        if inner_meta_by_cluster:
+            shared_keys = set.intersection(*(set(cluster_meta.keys()) for cluster_meta in inner_meta_by_cluster.values()))
+            for key in shared_keys:
+                values = [cluster_meta[key] for cluster_meta in inner_meta_by_cluster.values()]
+                first_value = values[0]
+                if all(value == first_value for value in values[1:]):
+                    shared_inner_meta[key] = first_value
+        meta["hrp_cluster_assets"] = cluster_assets
+        meta["hrp_inner_meta_by_cluster"] = inner_meta_by_cluster
+        meta["hrp_outer_meta"] = dict(outer_meta or {})
+        meta.update({f"hrp_inner_{k}": v for k, v in shared_inner_meta.items()})
         meta.update({f"hrp_outer_{k}": v for k, v in (outer_meta or {}).items()})
 
         # Keep diagnostics on the HRPStyle instance itself.
@@ -183,6 +208,15 @@ class HRPStyle:
         self.last_w_clusters = w_clusters
         self.last_local_weights = local_weights
         self.last_final_weights = final_weights
+        self.last_cluster_assets = cluster_assets
+        self.last_inner_meta_by_cluster = inner_meta_by_cluster
+        self.last_outer_meta = dict(outer_meta or {})
+        self.last_linkage_matrix = (
+            clustering_details.linkage_matrix.copy() if clustering_details is not None else None
+        )
+        self.last_cluster_labels = (
+            clustering_details.labels.copy() if clustering_details is not None else None
+        )
 
         return final_weights, meta
 
