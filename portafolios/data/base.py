@@ -6,6 +6,8 @@ from typing import Any
 
 import pandas as pd
 
+from ..metrics import asset as am
+
 
 @dataclass(slots=True)
 class StandardizedData:
@@ -23,9 +25,7 @@ class BaseDataLoader(ABC):
         """
 
     def compute_returns(self, prices: pd.DataFrame) -> pd.DataFrame:
-        clean_prices = prices.sort_index().ffill()
-        returns = clean_prices.pct_change(fill_method=None)
-        return returns.dropna(how="all")
+        return am.returns_simple(prices)
 
     def get_data(self) -> StandardizedData:
         prices = self.load_prices()

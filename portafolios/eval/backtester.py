@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 from ..core.types import BacktestResult
+from ..metrics import portfolio as pm
 
 
 class Backtester:
@@ -35,11 +36,11 @@ class Backtester:
         returns_window = self._slice_returns(start, end)
         weights = self.construction.weights.reindex(self.universe.returns.columns).fillna(0.0)
 
-        portfolio_returns = returns_window.mul(weights, axis=1).sum(axis=1)
+        portfolio_returns = pm.portfolio_return_series(returns_window, weights)
         portfolio_returns.name = self.construction_name
-        cumulative_returns = (1.0 + portfolio_returns).cumprod() - 1.0
+        cumulative_returns = pm.cumulative_return_series(portfolio_returns)
         cumulative_returns.name = self.construction_name
-        drawdown_series = self._drawdown_series(cumulative_returns)
+        drawdown_series = pm.drawdown_series(portfolio_returns)
         drawdown_series.name = self.construction_name
 
         result = BacktestResult(
@@ -48,7 +49,7 @@ class Backtester:
             end_date=end,
             portfolio_returns=portfolio_returns,
             cumulative_returns=cumulative_returns,
-            summary_metrics=self._summary_metrics(portfolio_returns, cumulative_returns, drawdown_series),
+            summary_metrics=self._summary_metrics(portfolio_returns, drawdown_series),
             drawdown_series=drawdown_series,
             notes=notes,
         )
@@ -108,9 +109,9 @@ class Backtester:
         if portfolio_returns.empty:
             raise ValueError("No hay retornos del backtest en la ventana solicitada.")
 
-        cumulative_returns = (1.0 + portfolio_returns).cumprod() - 1.0
-        drawdown_series = self._drawdown_series(cumulative_returns)
-        summary = self._summary_metrics(portfolio_returns, cumulative_returns, drawdown_series)
+        cumulative_returns = pm.cumulative_return_series(portfolio_returns)
+        drawdown_series = pm.drawdown_series(portfolio_returns)
+        summary = self._summary_metrics(portfolio_returns, drawdown_series)
         summary.update(
             {
                 "window_start": str(portfolio_returns.index.min()),
@@ -162,22 +163,24 @@ class Backtester:
     def _slice_returns(self, start: pd.Timestamp, end: pd.Timestamp) -> pd.DataFrame:
         return self.universe.get_returns_window(start, end)
 
-    def _drawdown_series(self, cumulative_returns: pd.Series) -> pd.Series:
-        wealth = 1.0 + cumulative_returns
-        return wealth / wealth.cummax() - 1.0
-
     def _summary_metrics(
         self,
         portfolio_returns: pd.Series,
-        cumulative_returns: pd.Series,
         drawdown_series: pd.Series | None = None,
     ) -> dict[str, float]:
-        n = len(portfolio_returns)
-        total_return = float((1.0 + portfolio_returns).prod() - 1.0)
-        annualized_return = float((1.0 + total_return) ** (self.ann_factor / n) - 1.0) if n > 0 else np.nan
-        annualized_volatility = float(portfolio_returns.std(ddof=1) * np.sqrt(self.ann_factor)) if n > 1 else 0.0
-        sharpe = annualized_return / annualized_volatility if annualized_volatility > 0 else np.nan
-        drawdown = drawdown_series if drawdown_series is not None else self._drawdown_series(cumulative_returns)
+        n = len(portfolio_returns.dropna())
+        total_return = pm.realized_total_return_from_series(portfolio_returns)
+        annualized_return = (
+            pm.realized_annualized_return_from_series(portfolio_returns, ann_factor=self.ann_factor)
+            if n > 0
+            else np.nan
+        )
+        annualized_volatility = pm.realized_annualized_volatility_from_series(
+            portfolio_returns,
+            ann_factor=self.ann_factor,
+        )
+        sharpe = pm.sharpe_from_series(portfolio_returns, ann_factor=self.ann_factor)
+        drawdown = drawdown_series if drawdown_series is not None else pm.drawdown_series(portfolio_returns)
         max_drawdown = float(drawdown.min()) if not drawdown.empty else 0.0
 
         return {

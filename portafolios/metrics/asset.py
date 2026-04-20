@@ -6,14 +6,22 @@ import numpy as np
 import pandas as pd
 
 
+def _clean_prices(prices: pd.DataFrame) -> pd.DataFrame:
+    return prices.sort_index().ffill()
+
+
 def returns_simple(prices: pd.DataFrame) -> pd.DataFrame:
     """R_t = P_t / P_{t-1} - 1."""
-    return prices.pct_change().dropna()
+    clean_prices = _clean_prices(prices)
+    returns = clean_prices.pct_change(fill_method=None)
+    return returns.dropna(how="all")
 
 
 def returns_log(prices: pd.DataFrame) -> pd.DataFrame:
     """r_t = ln(P_t) - ln(P_{t-1})."""
-    return np.log(prices).diff().dropna()
+    clean_prices = _clean_prices(prices)
+    log_returns = np.log(clean_prices).diff()
+    return log_returns.dropna(how="all")
 
 
 def mean_return(returns: pd.DataFrame, ann_factor: Optional[int] = None) -> pd.Series:

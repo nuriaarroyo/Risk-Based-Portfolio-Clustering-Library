@@ -105,11 +105,99 @@ def portfolio_return_series(returns: pd.DataFrame, weights: pd.Series) -> pd.Ser
     return (rets @ w).dropna()
 
 
+def cumulative_return_series(portfolio_returns: pd.Series) -> pd.Series:
+    rp = portfolio_returns.dropna()
+    return (1.0 + rp).cumprod() - 1.0
+
+
+def drawdown_series(portfolio_returns: pd.Series) -> pd.Series:
+    cumulative_returns = cumulative_return_series(portfolio_returns)
+    wealth = 1.0 + cumulative_returns
+    return wealth / wealth.cummax() - 1.0
+
+
+def realized_total_return_from_series(portfolio_returns: pd.Series) -> float:
+    rp = portfolio_returns.dropna()
+    if rp.empty:
+        return float("nan")
+    return float((1.0 + rp).prod() - 1.0)
+
+
+def realized_annualized_return_from_series(
+    portfolio_returns: pd.Series,
+    *,
+    ann_factor: int,
+) -> float:
+    rp = portfolio_returns.dropna()
+    if rp.empty:
+        return float("nan")
+    total_return = realized_total_return_from_series(rp)
+    return float((1.0 + total_return) ** (ann_factor / len(rp)) - 1.0)
+
+
+def realized_annualized_volatility_from_series(
+    portfolio_returns: pd.Series,
+    *,
+    ann_factor: Optional[int] = None,
+    ddof: int = 1,
+) -> float:
+    rp = portfolio_returns.dropna()
+    if len(rp) <= 1:
+        return 0.0
+    sigma = float(rp.std(ddof=ddof))
+    return sigma if ann_factor is None else float(sigma * np.sqrt(ann_factor))
+
+
+def sharpe_from_series(
+    portfolio_returns: pd.Series,
+    *,
+    rf_per_period: float = 0.0,
+    ann_factor: Optional[int] = None,
+    ddof: int = 1,
+) -> float:
+    rp = portfolio_returns.dropna()
+    if rp.empty:
+        return float("nan")
+    mu = float(rp.mean())
+    sigma = float(rp.std(ddof=ddof)) if len(rp) > 1 else 0.0
+    if sigma == 0.0 or np.isnan(sigma):
+        return float("nan")
+    sharpe_ratio = (mu - rf_per_period) / sigma
+    return sharpe_ratio if ann_factor is None else float(sharpe_ratio * np.sqrt(ann_factor))
+
+
+def realized_total_return(returns: pd.DataFrame, weights: pd.Series) -> float:
+    return realized_total_return_from_series(portfolio_return_series(returns, weights))
+
+
+def realized_annualized_return(
+    returns: pd.DataFrame,
+    weights: pd.Series,
+    *,
+    ann_factor: int,
+) -> float:
+    return realized_annualized_return_from_series(
+        portfolio_return_series(returns, weights),
+        ann_factor=ann_factor,
+    )
+
+
+def realized_annualized_volatility(
+    returns: pd.DataFrame,
+    weights: pd.Series,
+    *,
+    ann_factor: Optional[int] = None,
+    ddof: int = 1,
+) -> float:
+    return realized_annualized_volatility_from_series(
+        portfolio_return_series(returns, weights),
+        ann_factor=ann_factor,
+        ddof=ddof,
+    )
+
+
 def max_drawdown(returns: pd.DataFrame, weights: pd.Series) -> float:
-    rp = portfolio_return_series(returns, weights)
-    nav = (1 + rp).cumprod()
-    peak = nav.cummax()
-    dd = (nav / peak - 1.0).min()
+    dd = drawdown_series(portfolio_return_series(returns, weights)).min()
     return float(dd)
 
 
@@ -302,12 +390,9 @@ def sharpe(
     ann_factor: Optional[int] = None,
     ddof: int = 1,
 ) -> float:
-    mu = returns.mean()
-    cov = returns.cov(ddof=ddof)
-    return sharpe_from_moments(
-        mu,
-        cov,
-        weights,
+    return sharpe_from_series(
+        portfolio_return_series(returns, weights),
         rf_per_period=rf_per_period,
         ann_factor=ann_factor,
+        ddof=ddof,
     )
