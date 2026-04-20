@@ -8,7 +8,7 @@ import pandas as pd
 import plotly.graph_objects as go
 
 if TYPE_CHECKING:
-    from ..core.universe import PortfolioUniverse
+    from ..core.portafolio import PortfolioUniverse
 
 
 def bubbleplot_portfolio(

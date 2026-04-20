@@ -24,10 +24,10 @@ from portafolios import (  # noqa: E402
     HRPStyle,
     Markowitz,
     MonteCarloEngine,
+    PortfolioUniverse,
     NaiveRiskParity,
     PortfolioVisualizer,
     StandardizedData,
-    Universe,
     local_loader,
     yfinance_loader,
 )
@@ -522,7 +522,7 @@ def run_one_experiment(
         },
     )
 
-    universe = Universe(
+    universe = PortfolioUniverse(
         loader=market_data,
         tickers=tickers,
         start=str(universe_prices.index.min().date()),
