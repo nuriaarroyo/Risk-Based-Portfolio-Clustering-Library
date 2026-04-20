@@ -6,6 +6,7 @@ from typing import Iterable, Optional, Sequence
 
 import pandas as pd
 
+from .local_loader import local_loader
 from .preprocess import select_close_prices
 
 
@@ -194,9 +195,8 @@ def _load_saved_prices(
     if not save_path.exists():
         raise FileNotFoundError(f"No existe el archivo guardado: {save_path}")
 
-    saved = pd.read_csv(save_path, header=[0, 1], index_col=0, parse_dates=True)
-    return select_close_prices(
-        saved,
+    return local_loader(
+        path=save_path,
         tickers=tickers,
         start=start,
         end=end,

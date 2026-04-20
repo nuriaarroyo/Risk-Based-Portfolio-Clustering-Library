@@ -2,6 +2,7 @@
 
 This project currently assumes an existing Python environment with the required scientific Python stack already installed.
 
+
 ## Main Thesis Pipeline
 
 From the repository root, run:
@@ -15,6 +16,16 @@ This writes the experiment outputs under:
 ```text
 outputs/final_experimental_setup/
 ```
+
+## Existing Local Snapshot
+
+If you already have a Yahoo-style CSV snapshot, you can run the full experiment through the local loader instead of the download-oriented path:
+
+```powershell
+python scripts/run_final_experimental_setup.py --source local --local-path outputs/final_experimental_setup/data/yfinance_final_setup_raw.csv
+```
+
+This is the cleanest way to reuse an existing snapshot without relying on live download behavior.
 
 ## Faster Verification Run
 
@@ -34,7 +45,7 @@ If you want to use downloaded data instead of the processed local dataset:
 python scripts/run_final_experimental_setup.py --source yfinance
 ```
 
-This mode can write a raw snapshot file and depends on network access and current Yahoo Finance availability.
+This mode can write a raw snapshot file and depends on network access and current Yahoo Finance availability. If the configured snapshot file already exists, the loader can still reuse it through the same local CSV parsing path.
 
 ## Where To Read Results
 

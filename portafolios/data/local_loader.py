@@ -30,7 +30,7 @@ def local_loader(
     if not path.exists():
         raise FileNotFoundError(f"No se encontro el archivo: {path}")
 
-    df = pd.read_csv(path, header=[0, 1], index_col=0, parse_dates=True)
+    df = pd.read_csv(path, header=[0, 1], index_col=0, parse_dates=True, low_memory=False)
     return select_close_prices(
         df,
         tickers=tickers,

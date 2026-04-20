@@ -28,6 +28,7 @@ from portafolios import (  # noqa: E402
     PortfolioVisualizer,
     StandardizedData,
     Universe,
+    local_loader,
     yfinance_loader,
 )
 
@@ -246,10 +247,35 @@ def unique_preserving_order(values: Iterable[str]) -> list[str]:
     return out
 
 
-def load_price_source(source: str, tickers: list[str], start: str, end: str) -> pd.DataFrame:
+def resolve_local_csv_path(path: str | Path) -> Path:
+    candidate = Path(path)
+    if candidate.is_absolute():
+        return candidate
+    return PROJECT_ROOT / candidate
+
+
+def load_price_source(
+    source: str,
+    tickers: list[str],
+    start: str,
+    end: str,
+    *,
+    local_path: str | Path | None = None,
+) -> pd.DataFrame:
     if source == "processed":
         prices = load_processed_ohlcv_close_prices(PROCESSED_DATA_PATH)
         return prices.loc[pd.Timestamp(start) : pd.Timestamp(end)]
+
+    if source == "local":
+        if local_path is None:
+            raise ValueError("source='local' requiere `local_path` con un CSV estilo yfinance.")
+        return local_loader(
+            path=resolve_local_csv_path(local_path),
+            tickers=tickers,
+            start=start,
+            end=end,
+            prefer_adj_close=True,
+        )
 
     if source == "yfinance":
         DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -266,7 +292,7 @@ def load_price_source(source: str, tickers: list[str], start: str, end: str) -> 
             progress=False,
         )
 
-    raise ValueError("source must be either 'processed' or 'yfinance'.")
+    raise ValueError("source must be one of: 'processed', 'local', or 'yfinance'.")
 
 
 def available_prices(
@@ -290,7 +316,11 @@ def available_prices(
     return window
 
 
-def resolve_universes(source: str) -> tuple[list[UniverseSpec], pd.DataFrame]:
+def resolve_universes(
+    source: str,
+    *,
+    local_path: str | Path | None = None,
+) -> tuple[list[UniverseSpec], pd.DataFrame]:
     all_requested = unique_preserving_order(
         DJIA_CONSTITUENTS + SP100_STYLE_CANDIDATES + MULTI_ASSET_ETFS
     )
@@ -301,7 +331,13 @@ def resolve_universes(source: str) -> tuple[list[UniverseSpec], pd.DataFrame]:
         pd.Timestamp(max(CONSTRUCTION_DATES)) + pd.DateOffset(months=12) + pd.DateOffset(days=7)
     ).strftime("%Y-%m-%d")
 
-    prices = load_price_source(source, all_requested, earliest_needed, latest_needed)
+    prices = load_price_source(
+        source,
+        all_requested,
+        earliest_needed,
+        latest_needed,
+        local_path=local_path,
+    )
 
     specs = [
         UniverseSpec("djia", "DJIA Constituents", DJIA_CONSTITUENTS),
@@ -606,9 +642,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run the final thesis experimental setup.")
     parser.add_argument(
         "--source",
-        choices=["processed", "yfinance"],
+        choices=["processed", "local", "yfinance"],
         default="processed",
-        help="Use the local processed equity CSV or download/load Yahoo Finance data.",
+        help="Use the processed dataset, a local Yahoo-style CSV snapshot, or Yahoo Finance download logic.",
+    )
+    parser.add_argument(
+        "--local-path",
+        default=None,
+        help="Path to an existing Yahoo-style CSV snapshot. Required when --source local.",
     )
     parser.add_argument(
         "--fail-fast",
@@ -625,7 +666,11 @@ def main() -> None:
     TABLE_DIR.mkdir(parents=True, exist_ok=True)
     FRAMEWORK_DIR.mkdir(parents=True, exist_ok=True)
 
-    specs, prices = resolve_universes(args.source)
+    if args.source == "local" and not args.local_path:
+        parser.error("--local-path is required when --source local.")
+
+    resolved_local_path = resolve_local_csv_path(args.local_path) if args.local_path else None
+    specs, prices = resolve_universes(args.source, local_path=resolved_local_path)
     all_rows: list[dict[str, object]] = []
     all_terminal_rows: list[dict[str, object]] = []
     run_configs: list[dict[str, object]] = []
@@ -706,6 +751,7 @@ def main() -> None:
 
     config_payload = {
         "source": args.source,
+        "local_path": str(resolved_local_path) if resolved_local_path is not None else None,
         "construction_dates": CONSTRUCTION_DATES,
         "estimation_windows_months": ESTIMATION_WINDOWS_MONTHS,
         "evaluation": "12-month forward out-of-sample backtest",
