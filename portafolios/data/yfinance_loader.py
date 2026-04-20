@@ -9,7 +9,7 @@ from typing import Iterable, Optional, Sequence
 import pandas as pd
 
 from .local_loader import local_loader
-from .preprocess import select_close_prices
+from .preprocess import normalize_ticker_label, select_close_prices
 
 
 def yfinance_loader(
@@ -36,6 +36,7 @@ def yfinance_loader(
     max_retries: int = 3,
     retry_wait: float = 2.0,
     timeout: int = 20,
+    metadata_sink: dict[str, object] | None = None,
     **kwargs,
 ) -> pd.DataFrame:
     """
@@ -60,6 +61,15 @@ def yfinance_loader(
         catalog_path=catalog_path,
         save_path=resolved_save_path,
     )
+    _update_metadata_sink(
+        metadata_sink,
+        requested_origin="saved_snapshot" if use_saved_data else "yfinance_download",
+        save_path=str(resolved_save_path) if resolved_save_path is not None else None,
+        catalog_path=str(resolved_catalog_path) if resolved_catalog_path is not None else None,
+        used_saved_data=bool(use_saved_data),
+        download_attempted=not use_saved_data,
+        download_succeeded=False,
+    )
     if use_saved_data:
         prices = _load_saved_prices(
             save_path=resolved_save_path,
@@ -82,6 +92,11 @@ def yfinance_loader(
             prefer_adj_close=prefer_adj_close,
             max_missing_ratio=max_missing_ratio,
             origin="existing_snapshot",
+        )
+        _update_metadata_sink(
+            metadata_sink,
+            resolved_origin="saved_snapshot",
+            used_saved_data=True,
         )
         return prices
 
@@ -149,6 +164,12 @@ def yfinance_loader(
                 max_missing_ratio=max_missing_ratio,
                 origin="existing_snapshot",
             )
+            _update_metadata_sink(
+                metadata_sink,
+                resolved_origin="saved_snapshot_fallback",
+                used_saved_data=True,
+                download_attempted=True,
+            )
             return prices
         details = " | ".join(batch_errors) if batch_errors else "sin detalle adicional"
         raise ValueError(
@@ -189,6 +210,13 @@ def yfinance_loader(
             max_missing_ratio=max_missing_ratio,
             origin="yfinance_download",
         )
+    _update_metadata_sink(
+        metadata_sink,
+        resolved_origin="yfinance_download",
+        used_saved_data=False,
+        download_attempted=True,
+        download_succeeded=True,
+    )
     return prices
 
 
@@ -199,12 +227,20 @@ def _normalize_tickers(tickers: Optional[Iterable[str]]) -> list[str]:
     clean: list[str] = []
     seen: set[str] = set()
     for ticker in tickers:
-        symbol = str(ticker).strip().upper()
+        symbol = normalize_ticker_label(ticker)
         if not symbol or symbol in seen:
             continue
         seen.add(symbol)
         clean.append(symbol)
     return clean
+
+
+def _update_metadata_sink(metadata_sink: dict[str, object] | None, **values: object) -> None:
+    if metadata_sink is None:
+        return
+
+    for key, value in values.items():
+        metadata_sink[key] = value
 
 
 def _chunked(items: Sequence[str], size: int):

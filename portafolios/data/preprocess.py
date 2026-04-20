@@ -5,6 +5,22 @@ from typing import Iterable, Optional
 import pandas as pd
 
 
+def normalize_ticker_label(value: object) -> str:
+    return str(value).strip().upper()
+
+
+def normalize_ticker_sequence(values: Iterable[object]) -> list[str]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        ticker = normalize_ticker_label(value)
+        if not ticker or ticker in seen:
+            continue
+        seen.add(ticker)
+        normalized.append(ticker)
+    return normalized
+
+
 def select_close_prices(
     df: pd.DataFrame,
     *,
@@ -32,12 +48,12 @@ def select_close_prices(
     if isinstance(prices.columns, pd.MultiIndex):
         prices = _extract_close_from_multiindex(prices, prefer_adj_close=prefer_adj_close)
     else:
-        prices.columns = [str(col) for col in prices.columns]
+        prices.columns = [normalize_ticker_label(col) for col in prices.columns]
 
     prices = prices.loc[:, ~prices.columns.duplicated()].copy()
 
     if tickers is not None:
-        requested = [str(t) for t in tickers]
+        requested = normalize_ticker_sequence(tickers)
         keep = [ticker for ticker in requested if ticker in prices.columns]
         if not keep:
             raise ValueError("Ninguno de los tickers solicitados esta disponible en los datos.")
@@ -56,9 +72,8 @@ def select_close_prices(
         prices = prices.loc[:, missing_ratio <= max_missing_ratio]
 
     if fill_missing:
-        # Fill forward first to avoid using future values when a past value exists.
-        # Backward fill only resolves leading gaps that ffill cannot cover.
-        prices = prices.ffill().bfill()
+        # Forward-fill only so we never inject future prices into earlier dates.
+        prices = prices.ffill()
 
     prices = prices.dropna(axis=1, how="all")
     if prices.empty:
@@ -94,10 +109,10 @@ def _pick_columns(df: pd.DataFrame, *, field_name: str) -> pd.DataFrame:
 
         if parts[-1] == field_name:
             selected.append(col)
-            rename_map[col] = parts[0]
+            rename_map[col] = normalize_ticker_label(parts[0])
         elif parts[0] == field_name:
             selected.append(col)
-            rename_map[col] = parts[-1]
+            rename_map[col] = normalize_ticker_label(parts[-1])
 
     if not selected:
         return pd.DataFrame(index=df.index)

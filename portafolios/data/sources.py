@@ -44,6 +44,7 @@ class CSVLoader(BaseDataLoader):
     def _build_metadata(self, prices: pd.DataFrame) -> dict[str, object]:
         return {
             "source": "csv",
+            "origin": "local_csv",
             "path": str(self.path),
             "frequency": self.freq,
             "start": str(prices.index.min()) if not prices.empty else self.start,
@@ -102,9 +103,11 @@ class YFinanceLoader(BaseDataLoader):
         self.max_retries = max_retries
         self.retry_wait = retry_wait
         self.timeout = timeout
+        self._last_runtime_metadata: dict[str, object] = {}
 
     def load_prices(self) -> pd.DataFrame:
-        return yfinance_loader(
+        runtime_metadata: dict[str, object] = {}
+        prices = yfinance_loader(
             tickers=self.tickers,
             start=self.start,
             end=self.end,
@@ -127,17 +130,27 @@ class YFinanceLoader(BaseDataLoader):
             max_retries=self.max_retries,
             retry_wait=self.retry_wait,
             timeout=self.timeout,
+            metadata_sink=runtime_metadata,
         )
+        self._last_runtime_metadata = runtime_metadata
+        return prices
 
     def _build_metadata(self, prices: pd.DataFrame) -> dict[str, object]:
+        runtime_metadata = dict(self._last_runtime_metadata)
         return {
             "source": "yfinance",
+            "origin": runtime_metadata.get("resolved_origin", "yfinance"),
+            "requested_origin": runtime_metadata.get("requested_origin"),
             "frequency": self.freq or self.interval,
             "start": str(prices.index.min()) if not prices.empty else self.start,
             "end": str(prices.index.max()) if not prices.empty else self.end,
             "n_assets": len(prices.columns),
             "n_observations": len(prices),
-            "save_path": str(self.save_path) if self.save_path is not None else None,
-            "catalog_path": str(self.catalog_path) if self.catalog_path is not None else None,
-            "used_saved_data": self.use_saved_data,
+            "save_path": runtime_metadata.get("save_path")
+            or (str(self.save_path) if self.save_path is not None else None),
+            "catalog_path": runtime_metadata.get("catalog_path")
+            or (str(self.catalog_path) if self.catalog_path is not None else None),
+            "used_saved_data": runtime_metadata.get("used_saved_data", self.use_saved_data),
+            "download_attempted": runtime_metadata.get("download_attempted"),
+            "download_succeeded": runtime_metadata.get("download_succeeded"),
         }

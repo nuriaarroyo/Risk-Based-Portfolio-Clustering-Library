@@ -23,8 +23,8 @@ class BaseDataLoader(ABC):
         """
 
     def compute_returns(self, prices: pd.DataFrame) -> pd.DataFrame:
-        clean_prices = prices.sort_index().ffill().bfill()
-        returns = clean_prices.pct_change()
+        clean_prices = prices.sort_index().ffill()
+        returns = clean_prices.pct_change(fill_method=None)
         return returns.dropna(how="all")
 
     def get_data(self) -> StandardizedData:
