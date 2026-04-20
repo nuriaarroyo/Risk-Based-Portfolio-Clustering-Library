@@ -10,6 +10,7 @@ __pycache__/
 outputs/plots/
 outputs/test_runs/
 outputs/runs/
+outputs/validation/
 outputs/final_experimental_setup/
 outputs/data_exports/final_experimental_setup/data/
 outputs/data_exports/final_experimental_setup/framework_runs/
