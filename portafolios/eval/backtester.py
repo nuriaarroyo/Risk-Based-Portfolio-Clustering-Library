@@ -30,7 +30,7 @@ class Backtester:
     ) -> BacktestResult:
         start, end = self._resolve_period(start_date=start_date, end_date=end_date)
         if end < start:
-            raise ValueError("`end_date` debe ser mayor o igual que `start_date`.")
+            raise ValueError("`end_date` must be on or after `start_date`.")
 
         self._validate_period(start)
         returns_window = self._slice_returns(start, end)
@@ -99,7 +99,9 @@ class Backtester:
     ) -> dict[str, float | str]:
         active_result = result or self.construction.backtest_result
         if active_result is None:
-            raise ValueError("No hay BacktestResult disponible para resumir.")
+            raise ValueError("No BacktestResult is available to summarize.")
+        if start_date is not None and end_date is not None and pd.Timestamp(end_date) < pd.Timestamp(start_date):
+            raise ValueError("`end_date` must be on or after `start_date`.")
 
         portfolio_returns = active_result.portfolio_returns
         if start_date is not None:
@@ -107,9 +109,8 @@ class Backtester:
         if end_date is not None:
             portfolio_returns = portfolio_returns.loc[portfolio_returns.index <= pd.Timestamp(end_date)]
         if portfolio_returns.empty:
-            raise ValueError("No hay retornos del backtest en la ventana solicitada.")
+            raise ValueError("No backtest returns are available inside the requested window.")
 
-        cumulative_returns = pm.cumulative_return_series(portfolio_returns)
         drawdown_series = pm.drawdown_series(portfolio_returns)
         summary = self._summary_metrics(portfolio_returns, drawdown_series)
         summary.update(
@@ -128,7 +129,7 @@ class Backtester:
     ) -> tuple[pd.Timestamp, pd.Timestamp]:
         available_returns = self.universe.returns
         if available_returns is None or available_returns.empty:
-            raise ValueError("El universe no tiene retornos disponibles para backtesting.")
+            raise ValueError("The universe does not have returns available for backtesting.")
 
         construction_end = self.construction.construction_end
         if start_date is None:
@@ -147,8 +148,8 @@ class Backtester:
         candidates = returns_index[returns_index > cutoff]
         if len(candidates) == 0:
             raise ValueError(
-                "No hay datos fuera de muestra despues del fin de construccion. "
-                "Amplia el rango del universe para poder backtestear."
+                "No out-of-sample data is available after construction_end. "
+                "Expand the universe date range to run a backtest."
             )
         return pd.Timestamp(candidates.min())
 
@@ -156,7 +157,7 @@ class Backtester:
         construction_end = self.construction.construction_end
         if construction_end is not None and start <= pd.Timestamp(construction_end):
             raise ValueError(
-                "El backtest debe iniciar despues del periodo de construccion. "
+                "Backtesting must start after the construction period. "
                 f"construction_end={pd.Timestamp(construction_end).date()}, start_date={start.date()}"
             )
 

@@ -29,9 +29,11 @@ class MonteCarloEngine:
         notes: Optional[str] = None,
     ) -> MonteCarloResult:
         if horizon <= 0:
-            raise ValueError("`horizon` debe ser positivo.")
+            raise ValueError("`horizon` must be positive.")
         if n_simulations <= 0:
-            raise ValueError("`n_simulations` debe ser positivo.")
+            raise ValueError("`n_simulations` must be positive.")
+        if initial_value <= 0:
+            raise ValueError("`initial_value` must be positive.")
 
         estimation_returns = self._estimation_returns()
         weights = self.construction.weights.reindex(estimation_returns.columns).fillna(0.0).values
@@ -42,6 +44,7 @@ class MonteCarloEngine:
             mean=mean_vector,
             cov=cov_matrix,
             size=(horizon, n_simulations),
+            check_valid="raise",
         )
         portfolio_returns = np.tensordot(simulated_asset_returns, weights, axes=([2], [0]))
         wealth_paths = initial_value * np.cumprod(1.0 + portfolio_returns, axis=0)
@@ -58,7 +61,7 @@ class MonteCarloEngine:
             n_simulations=n_simulations,
             simulated_paths=simulated_paths,
             terminal_values=terminal_values,
-            summary_metrics=self._summary_metrics(terminal_values),
+            summary_metrics=self._summary_metrics(terminal_values, initial_value=initial_value),
             estimation_start=pd.Timestamp(estimation_returns.index.min()),
             estimation_end=pd.Timestamp(estimation_returns.index.max()),
             notes=notes,
@@ -112,19 +115,29 @@ class MonteCarloEngine:
             results[name] = result
         return results
 
-    def _summary_metrics(self, terminal_values: np.ndarray) -> dict[str, float]:
-        terminal_returns = terminal_values - 1.0
+    @staticmethod
+    def _summary_metrics(
+        terminal_values: np.ndarray,
+        *,
+        initial_value: float,
+    ) -> dict[str, float]:
+        terminal_returns = (terminal_values / initial_value) - 1.0
         return {
             "mean_terminal_value": float(np.mean(terminal_values)),
             "median_terminal_value": float(np.median(terminal_values)),
             "std_terminal_value": float(np.std(terminal_values, ddof=1)) if len(terminal_values) > 1 else 0.0,
             "min_terminal_value": float(np.min(terminal_values)),
             "max_terminal_value": float(np.max(terminal_values)),
-            "prob_loss": float(np.mean(terminal_values < 1.0)),
+            "prob_loss": float(np.mean(terminal_values < initial_value)),
             "mean_terminal_return": float(np.mean(terminal_returns)),
         }
 
     def _estimation_returns(self) -> pd.DataFrame:
         start = self.construction.construction_start
         end = self.construction.construction_end
-        return self.universe.get_returns_window(start, end)
+        estimation_returns = self.universe.get_returns_window(start, end)
+        if len(estimation_returns) < 2:
+            raise ValueError("Monte Carlo requires at least two return observations in the estimation window.")
+        if not np.isfinite(estimation_returns.to_numpy(dtype=float)).all():
+            raise ValueError("Monte Carlo estimation returns contain non-finite values.")
+        return estimation_returns
