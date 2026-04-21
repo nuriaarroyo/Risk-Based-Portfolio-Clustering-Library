@@ -37,6 +37,16 @@ python scripts/run_final_experimental_setup.py --source processed --skip-plots
 
 This is useful for verifying tables and core pipeline logic without regenerating the full plot set.
 
+With the current processed dataset, this verification run completes the supported cases and writes a
+`skipped_runs.csv` report for combinations that cannot be evaluated from the available data. In the
+current local snapshot, the main expected skips are:
+
+- longer early-window runs that would require return history before `2018-02-02`
+- the `multi_asset_etf` universe, which is not present in `data/processed/data_clean_stock_data.csv`
+
+That means a successful sanity check may still report skipped runs when the dataset coverage is
+intentionally narrower than the full experiment grid.
+
 ## Optional Yahoo Finance Mode
 
 If you want to use downloaded data instead of the processed local dataset:
