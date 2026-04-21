@@ -635,9 +635,11 @@ def run_one_experiment(
 
 
 def write_skipped(skipped: list[dict[str, str]]) -> None:
+    skipped_path = TABLE_DIR / "skipped_runs.csv"
     if not skipped:
+        skipped_path.unlink(missing_ok=True)
         return
-    pd.DataFrame(skipped).to_csv(TABLE_DIR / "skipped_runs.csv", index=False)
+    pd.DataFrame(skipped).to_csv(skipped_path, index=False)
 
 
 def main() -> None:
