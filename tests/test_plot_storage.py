@@ -4,6 +4,7 @@ import shutil
 import sys
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
@@ -11,7 +12,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from portafolios.core.types import ConstructionResult, HRPDiagnostics
+from portafolios.core.types import BacktestResult, ConstructionResult, HRPDiagnostics, MonteCarloResult
 from portafolios.plots import PortfolioVisualizer
 from scripts.run_final_experimental_setup import save_mc_terminal_comparison_plot
 
@@ -103,6 +104,34 @@ class DummyUniversePlots(DummyUniversePaths):
                     final_weights=pd.Series(dtype=float),
                 )
             },
+            backtest_result=BacktestResult(
+                construction_name="hrp_style",
+                start_date=pd.Timestamp("2024-01-02"),
+                end_date=pd.Timestamp("2024-01-05"),
+                portfolio_returns=pd.Series(
+                    [0.01, -0.005, 0.015, 0.007],
+                    index=pd.to_datetime(["2024-01-02", "2024-01-03", "2024-01-04", "2024-01-05"]),
+                ),
+                cumulative_returns=pd.Series(
+                    [0.01, 0.00495, 0.02002425, 0.02716441975],
+                    index=pd.to_datetime(["2024-01-02", "2024-01-03", "2024-01-04", "2024-01-05"]),
+                ),
+                summary_metrics={},
+            ),
+            mc_result=MonteCarloResult(
+                construction_name="hrp_style",
+                horizon=4,
+                n_simulations=3,
+                simulated_paths=pd.DataFrame(
+                    {
+                        "path_0": [1.0, 1.02, 1.01, 1.03],
+                        "path_1": [1.0, 0.99, 1.00, 1.02],
+                        "path_2": [1.0, 1.01, 1.03, 1.04],
+                    }
+                ),
+                terminal_values=np.array([1.03, 1.02, 1.04]),
+                summary_metrics={},
+            ),
         )
         self.constructions = {hrp.name: hrp}
         self._construction_names = list(self.constructions)
@@ -210,6 +239,28 @@ def test_visualizer_diagnostic_plot_helpers_save_in_clean_locations() -> None:
         assert (universe.plots_dir / "comparisons" / "covariance_heatmap.html").exists()
         assert (universe.plots_dir / "constructions" / "hrp_style" / "hrp_distance_matrix.html").exists()
         assert (universe.plots_dir / "constructions" / "hrp_style" / "hrp_distance_histogram.html").exists()
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
+def test_visualizer_uses_consistent_accessible_palette_for_key_plots() -> None:
+    root = fresh_test_root("palette_consistency")
+    try:
+        universe = DummyUniversePlots(root)
+        visualizer = PortfolioVisualizer(universe)
+
+        pie = visualizer.plot_weights_pie("hrp_style")
+        mc_paths = visualizer.plot_mc_paths("hrp_style", max_paths=3)
+        mc_distribution = visualizer.plot_mc_distribution("hrp_style")
+
+        assert pie.data[0]["outsidetextfont"]["color"] == visualizer._TEXT_COLOR
+        assert pie.data[0]["marker"]["colors"][0] == visualizer._DISCRETE_COLORS[0]
+
+        assert mc_paths.data[0]["line"]["color"] == visualizer._rgba(visualizer._DISCRETE_COLORS[0], 0.18)
+        assert mc_paths.data[-1]["line"]["color"] == visualizer._DISCRETE_COLORS[1]
+
+        assert mc_distribution.data[0]["marker"]["color"] == visualizer._DISCRETE_COLORS[0]
+        assert mc_distribution.data[1]["line"]["color"] == visualizer._DISCRETE_COLORS[1]
     finally:
         shutil.rmtree(root, ignore_errors=True)
 

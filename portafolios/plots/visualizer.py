@@ -13,6 +13,32 @@ class PortfolioVisualizer:
     Plotly visualization layer for a universe with saved constructions.
     """
 
+    _DISCRETE_COLORS = (
+        "#0072B2",  # blue
+        "#E69F00",  # orange
+        "#009E73",  # bluish green
+        "#D55E00",  # vermillion
+        "#CC79A7",  # reddish purple
+        "#56B4E9",  # sky blue
+        "#000000",  # black
+    )
+    _TEXT_COLOR = "#243447"
+    _GRID_COLOR = "#D9E2EC"
+    _BACKGROUND_COLOR = "#FFFFFF"
+    _CORRELATION_SCALE = (
+        (0.0, "#D55E00"),
+        (0.25, "#F1B574"),
+        (0.5, "#F7F7F7"),
+        (0.75, "#8CC8E8"),
+        (1.0, "#0072B2"),
+    )
+    _SEQUENTIAL_SCALE = (
+        (0.0, "#F7FBFF"),
+        (0.3, "#CFE8F3"),
+        (0.6, "#56B4E9"),
+        (1.0, "#0072B2"),
+    )
+
     _PLOT_DIRS = {
         "construction": "constructions",
         "backtest": "backtests",
@@ -38,14 +64,27 @@ class PortfolioVisualizer:
         filename: str | None = None,
     ) -> go.Figure:
         weights = self._get_weights(construction_name, drop_zero=drop_zero, sort=sort)
+        colors = self._colors_for_items(weights.index)
         fig = px.bar(
             x=weights.index,
             y=weights.values,
             labels={"x": "Asset", "y": "Weight"},
             title=f"Weights Bar - {construction_name}",
         )
-        fig.update_traces(text=[f"{value:.2%}" for value in weights.values], textposition="outside")
-        fig.update_layout(showlegend=False)
+        fig.update_traces(
+            marker=dict(color=colors, line=dict(color=self._BACKGROUND_COLOR, width=1)),
+            text=[f"{value:.2%}" for value in weights.values],
+            textposition="outside",
+            textfont=dict(color=self._TEXT_COLOR),
+            hovertemplate="Asset=%{x}<br>Weight=%{y:.2%}<extra></extra>",
+        )
+        self._apply_base_layout(
+            fig,
+            title=f"Weights Bar - {construction_name}",
+            xaxis_title="Asset",
+            yaxis_title="Weight",
+            showlegend=False,
+        )
         self._maybe_save_html(fig, save_html=save_html, filename=filename, kind="construction", construction_name=construction_name, default_filename="weights_bar.html")
         return fig
 
@@ -57,11 +96,31 @@ class PortfolioVisualizer:
         filename: str | None = None,
     ) -> go.Figure:
         weights = self._get_weights(construction_name, drop_zero=drop_zero, sort=True)
+        colors = self._colors_for_items(weights.index)
         fig = px.pie(
             names=weights.index,
             values=weights.values,
             title=f"Weights Pie - {construction_name}",
             hole=0.3,
+            color_discrete_sequence=list(colors),
+        )
+        fig.update_traces(
+            sort=False,
+            direction="clockwise",
+            textposition="outside",
+            textinfo="label+percent",
+            textfont=dict(color=self._TEXT_COLOR),
+            outsidetextfont=dict(color=self._TEXT_COLOR),
+            insidetextfont=dict(color=self._TEXT_COLOR),
+            marker=dict(colors=colors, line=dict(color=self._BACKGROUND_COLOR, width=1.5)),
+            hovertemplate="Asset=%{label}<br>Weight=%{percent}<extra></extra>",
+        )
+        self._apply_base_layout(
+            fig,
+            title=f"Weights Pie - {construction_name}",
+            showlegend=False,
+            show_grid_x=False,
+            show_grid_y=False,
         )
         self._maybe_save_html(fig, save_html=save_html, filename=filename, kind="construction", construction_name=construction_name, default_filename="weights_pie.html")
         return fig
@@ -74,6 +133,7 @@ class PortfolioVisualizer:
         filename: str | None = None,
     ) -> go.Figure:
         weights = self._get_weights(construction_name, drop_zero=drop_zero, sort=True)
+        colors = self._colors_for_items(weights.index)
         fig = px.scatter(
             x=weights.index,
             y=weights.values,
@@ -81,7 +141,21 @@ class PortfolioVisualizer:
             labels={"x": "Asset", "y": "Weight", "size": "Abs Weight"},
             title=f"Weights Scatter - {construction_name}",
         )
-        fig.update_traces(mode="markers+text", text=weights.index, textposition="top center")
+        fig.update_traces(
+            mode="markers+text",
+            text=weights.index,
+            textposition="top center",
+            marker=dict(color=colors, line=dict(color=self._BACKGROUND_COLOR, width=1)),
+            textfont=dict(color=self._TEXT_COLOR),
+            hovertemplate="Asset=%{x}<br>Weight=%{y:.2%}<extra></extra>",
+        )
+        self._apply_base_layout(
+            fig,
+            title=f"Weights Scatter - {construction_name}",
+            xaxis_title="Asset",
+            yaxis_title="Weight",
+            showlegend=False,
+        )
         self._maybe_save_html(fig, save_html=save_html, filename=filename, kind="construction", construction_name=construction_name, default_filename="weights_scatter.html")
         return fig
 
@@ -94,6 +168,7 @@ class PortfolioVisualizer:
     ) -> go.Figure:
         weights = self._get_weights(construction_name, drop_zero=drop_zero, sort=False)
         returns_frame = self._get_construction_returns(construction_name)
+        colors = self._colors_for_items(weights.index)
         asset_stats = pd.DataFrame(
             {
                 "asset": weights.index,
@@ -127,7 +202,19 @@ class PortfolioVisualizer:
             },
             size_max=60,
         )
-        fig.update_traces(mode="markers+text", textposition="top center")
+        fig.update_traces(
+            mode="markers+text",
+            textposition="top center",
+            marker=dict(color=colors, line=dict(color=self._BACKGROUND_COLOR, width=1)),
+            textfont=dict(color=self._TEXT_COLOR),
+        )
+        self._apply_base_layout(
+            fig,
+            title=f"Weights Bubble - {construction_name}",
+            xaxis_title="Expected Return",
+            yaxis_title="Volatility",
+            showlegend=False,
+        )
         self._maybe_save_html(
             fig,
             save_html=save_html,
@@ -150,10 +237,12 @@ class PortfolioVisualizer:
         if kind == "correlation":
             zmin, zmax = -1.0, 1.0
             title = "Correlation Heatmap"
+            colorscale = self._CORRELATION_SCALE
         else:
             max_abs = np.nanmax(np.abs(z)) if np.isfinite(z).any() else 1.0
             zmin, zmax = -max_abs, max_abs
             title = "Covariance Heatmap"
+            colorscale = self._CORRELATION_SCALE
 
         text = np.vectorize(lambda value: f"{value:.{round_decimals}f}")(z)
         fig = go.Figure(
@@ -161,7 +250,7 @@ class PortfolioVisualizer:
                 z=z,
                 x=list(matrix.columns),
                 y=list(matrix.index),
-                colorscale="RdBu",
+                colorscale=colorscale,
                 zmin=zmin,
                 zmax=zmax,
                 text=text,
@@ -169,10 +258,13 @@ class PortfolioVisualizer:
                 colorbar=dict(title=kind.title()),
             )
         )
-        fig.update_layout(
+        self._apply_base_layout(
             title=title,
+            fig=fig,
             xaxis_title="Asset",
             yaxis_title="Asset",
+            show_grid_x=False,
+            show_grid_y=False,
         )
         self._maybe_save_html(
             fig,
@@ -203,14 +295,17 @@ class PortfolioVisualizer:
                 z=matrix.values.astype(float),
                 x=list(matrix.columns),
                 y=list(matrix.index),
-                colorscale="RdBu",
+                colorscale=self._SEQUENTIAL_SCALE,
                 colorbar=dict(title="Distance"),
             )
         )
-        fig.update_layout(
+        self._apply_base_layout(
+            fig=fig,
             title=f"HRP Distance Matrix - {construction_name}",
             xaxis_title="Asset",
             yaxis_title="Asset",
+            show_grid_x=False,
+            show_grid_y=False,
         )
         self._maybe_save_html(
             fig,
@@ -240,10 +335,11 @@ class PortfolioVisualizer:
             data=go.Histogram(
                 x=distances,
                 nbinsx=max(10, bins),
-                marker=dict(color="#4C78A8", opacity=0.8),
+                marker=dict(color=self._DISCRETE_COLORS[0], opacity=0.8),
             )
         )
-        fig.update_layout(
+        self._apply_base_layout(
+            fig=fig,
             title=f"HRP Distance Histogram - {construction_name}",
             xaxis_title="Distance",
             yaxis_title="Count",
@@ -277,9 +373,11 @@ class PortfolioVisualizer:
                 y=series.values,
                 mode="lines",
                 name=construction_name,
+                line=dict(color=self._DISCRETE_COLORS[0], width=3),
             )
         )
-        fig.update_layout(
+        self._apply_base_layout(
+            fig=fig,
             title=f"Backtest Wealth - {construction_name}",
             xaxis_title="Date",
             yaxis_title="Wealth",
@@ -310,19 +408,21 @@ class PortfolioVisualizer:
             raise ValueError("No hay datos suficientes para comparar backtests.")
 
         fig = go.Figure()
-        for column in comparison_df.columns:
+        colors = self._colors_for_items(comparison_df.columns)
+        for idx, column in enumerate(comparison_df.columns):
             fig.add_trace(
                 go.Scatter(
                     x=comparison_df.index,
                     y=comparison_df[column],
                     mode="lines",
                     name=str(column),
-                    line=dict(width=2),
+                    line=dict(color=colors[idx], width=2.5),
                     connectgaps=False,
                 )
             )
 
-        fig.update_layout(
+        self._apply_base_layout(
+            fig=fig,
             title="Backtest Comparison - Cumulative Wealth",
             xaxis_title="Date",
             yaxis_title="Cumulative Wealth (start = 1.0)",
@@ -335,7 +435,6 @@ class PortfolioVisualizer:
                 x=0,
             ),
             hovermode="x unified",
-            template="plotly_white",
         )
 
         self._maybe_save_html(
@@ -361,23 +460,36 @@ class PortfolioVisualizer:
             paths = paths.iloc[:, :max_paths]
 
         fig = go.Figure()
+        path_color = self._rgba(self._DISCRETE_COLORS[0], 0.18)
         for column in paths.columns:
             fig.add_trace(
                 go.Scatter(
                     x=paths.index,
                     y=paths[column],
                     mode="lines",
-                    line=dict(width=1),
-                    opacity=0.35,
+                    line=dict(color=path_color, width=1),
                     showlegend=False,
                     hoverinfo="skip",
                 )
             )
 
-        fig.update_layout(
+        if not paths.empty:
+            fig.add_trace(
+                go.Scatter(
+                    x=paths.index,
+                    y=paths.median(axis=1),
+                    mode="lines",
+                    name="Median path",
+                    line=dict(color=self._DISCRETE_COLORS[1], width=3),
+                )
+            )
+
+        self._apply_base_layout(
+            fig=fig,
             title=f"Monte Carlo Paths - {construction_name}",
             xaxis_title="Step",
             yaxis_title="Portfolio Value",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
         )
         self._maybe_save_html(fig, save_html=save_html, filename=filename, kind="monte_carlo", construction_name=construction_name, default_filename="mc_paths.html")
         return fig
@@ -405,7 +517,7 @@ class PortfolioVisualizer:
                 nbinsx=min(60, max(20, terminal_values.size // 15)),
                 histnorm="probability density",
                 name="Terminal values",
-                marker=dict(color="#4C78A8", opacity=0.72),
+                marker=dict(color=self._DISCRETE_COLORS[0], opacity=0.72),
                 opacity=0.85,
             )
         )
@@ -418,16 +530,17 @@ class PortfolioVisualizer:
                     y=kde_y,
                     mode="lines",
                     name="Density",
-                    line=dict(color="#F58518", width=3),
+                    line=dict(color=self._DISCRETE_COLORS[1], width=3),
                 )
             )
 
-        self._add_reference_line(fig, mean_value, "Mean", "#E45756")
-        self._add_reference_line(fig, median_value, "Median", "#72B7B2")
-        self._add_reference_line(fig, p05, "5th pct", "#54A24B")
-        self._add_reference_line(fig, p95, "95th pct", "#B279A2")
+        self._add_reference_line(fig, mean_value, "Mean", self._DISCRETE_COLORS[1])
+        self._add_reference_line(fig, median_value, "Median", self._DISCRETE_COLORS[2])
+        self._add_reference_line(fig, p05, "5th pct", self._DISCRETE_COLORS[3])
+        self._add_reference_line(fig, p95, "95th pct", self._DISCRETE_COLORS[4])
 
-        fig.update_layout(
+        self._apply_base_layout(
+            fig=fig,
             title=f"Monte Carlo Terminal Distribution - {construction_name}",
             xaxis_title="Terminal Value",
             yaxis_title="Density",
@@ -589,6 +702,57 @@ class PortfolioVisualizer:
             bordercolor=color,
             font=dict(color=color),
         )
+
+    def _colors_for_items(self, items) -> list[str]:
+        colors = list(self._DISCRETE_COLORS)
+        return [colors[idx % len(colors)] for idx, _ in enumerate(items)]
+
+    def _apply_base_layout(
+        self,
+        fig: go.Figure,
+        *,
+        title: str,
+        xaxis_title: str | None = None,
+        yaxis_title: str | None = None,
+        showlegend: bool | None = None,
+        legend: dict[str, Any] | None = None,
+        hovermode: str | None = None,
+        show_grid_x: bool = True,
+        show_grid_y: bool = True,
+        bargap: float | None = None,
+    ) -> None:
+        layout_kwargs: dict[str, Any] = {
+            "title": title,
+            "template": "plotly_white",
+            "paper_bgcolor": self._BACKGROUND_COLOR,
+            "plot_bgcolor": self._BACKGROUND_COLOR,
+            "font": dict(color=self._TEXT_COLOR),
+            "colorway": list(self._DISCRETE_COLORS),
+        }
+        if xaxis_title is not None:
+            layout_kwargs["xaxis_title"] = xaxis_title
+        if yaxis_title is not None:
+            layout_kwargs["yaxis_title"] = yaxis_title
+        if showlegend is not None:
+            layout_kwargs["showlegend"] = showlegend
+        if legend is not None:
+            layout_kwargs["legend"] = legend
+        if hovermode is not None:
+            layout_kwargs["hovermode"] = hovermode
+        if bargap is not None:
+            layout_kwargs["bargap"] = bargap
+        fig.update_layout(**layout_kwargs)
+        fig.update_xaxes(showgrid=show_grid_x, gridcolor=self._GRID_COLOR, zerolinecolor=self._GRID_COLOR)
+        fig.update_yaxes(showgrid=show_grid_y, gridcolor=self._GRID_COLOR, zerolinecolor=self._GRID_COLOR)
+
+    def _rgba(self, color: str, alpha: float) -> str:
+        color = color.lstrip("#")
+        if len(color) != 6:
+            raise ValueError(f"Expected a 6-digit hex color, got '{color}'.")
+        red = int(color[0:2], 16)
+        green = int(color[2:4], 16)
+        blue = int(color[4:6], 16)
+        return f"rgba({red}, {green}, {blue}, {alpha})"
 
     def save_all_construction_plots(self) -> dict[str, list[str]]:
         saved: dict[str, list[str]] = {}
