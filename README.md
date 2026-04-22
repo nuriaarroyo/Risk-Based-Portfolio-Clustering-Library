@@ -208,12 +208,6 @@ honores_actuaria/
 
 ## Current Status
 
-This is a thesis-ready research repository, not a finished production package. The core workflow is implemented and runnable, and the repository includes a working library structure, curated thesis notebooks, and reproducible exported results.
+This repository is the final thesis submission version of the project. The core workflow is implemented and runnable, and the repository includes the cleaned library structure, thesis-facing notebooks, curated exports, and reproducible experiment outputs used for the thesis.
 
-The current cleanup has focused on repository presentation rather than changing the core library logic:
-
-- thesis-facing notebooks were separated from demos, validation, and exploration material
-- loose exported images were moved out of the live notebook workspace
-- large generated outputs were removed from git tracking while remaining reproducible locally
-
-Packaging and production-style distribution are intentionally out of scope for the thesis submission version.
+It is complete for thesis purposes. Production-style packaging and distribution are intentionally out of scope for this submission.
