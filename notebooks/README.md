@@ -7,3 +7,5 @@ This folder is organized into three roles:
 - `archive/` contains demos, validation notebooks, exploration, and loose image exports kept only for reference.
 
 The current cleanup keeps `final_experimental_setup/read_final_results.ipynb` in place because it is still an active working notebook.
+
+For a compact end-to-end library walkthrough, see `archive/demos/djia_four_asset_library_walkthrough.ipynb`.
