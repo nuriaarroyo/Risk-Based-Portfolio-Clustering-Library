@@ -183,35 +183,47 @@ class PortfolioVisualizer:
             }
         )
         asset_stats["sharpe_like"] = asset_stats["expected_return"] / asset_stats["volatility"].replace(0, np.nan)
+        max_abs_weight = float(asset_stats["abs_weight"].max()) if not asset_stats.empty else 0.0
+        if max_abs_weight <= 0:
+            bubble_sizes = np.full(len(asset_stats), 24.0)
+        else:
+            bubble_sizes = 18.0 + 52.0 * np.sqrt(asset_stats["abs_weight"] / max_abs_weight)
 
-        fig = px.scatter(
-            asset_stats,
-            x="expected_return",
-            y="volatility",
-            size="abs_weight",
-            text="asset",
-            hover_data={
-                "asset": False,
-                "weight": ":.2%",
-                "expected_return": ":.4f",
-                "volatility": ":.4f",
-                "sharpe_like": ":.3f",
-                "abs_weight": False,
-            },
-            title=f"Weights Bubble - {construction_name}",
-            labels={
-                "expected_return": "Expected Return",
-                "volatility": "Volatility",
-                "abs_weight": "Abs Weight",
-            },
-            size_max=60,
-        )
-        fig.update_traces(
-            mode="markers+text",
-            textposition="top center",
-            marker=dict(color=colors, line=dict(color=self._BACKGROUND_COLOR, width=1)),
-            textfont=dict(color=self._TEXT_COLOR),
-            cliponaxis=False,
+        fig = go.Figure()
+        fig.add_trace(
+            go.Scatter(
+                x=asset_stats["expected_return"],
+                y=asset_stats["volatility"],
+                mode="markers+text",
+                text=asset_stats["asset"],
+                textposition="top center",
+                marker=dict(
+                    color=colors,
+                    size=bubble_sizes,
+                    sizemode="area",
+                    line=dict(color=self._BACKGROUND_COLOR, width=1),
+                    opacity=0.82,
+                ),
+                textfont=dict(color=self._TEXT_COLOR),
+                cliponaxis=False,
+                customdata=np.column_stack(
+                    [
+                        asset_stats["asset"],
+                        asset_stats["weight"],
+                        asset_stats["abs_weight"],
+                        asset_stats["sharpe_like"].fillna(np.nan),
+                    ]
+                ),
+                hovertemplate=(
+                    "Asset=%{customdata[0]}"
+                    "<br>Weight=%{customdata[1]:.2%}"
+                    "<br>Abs weight=%{customdata[2]:.2%}"
+                    "<br>Expected return=%{x:.4f}"
+                    "<br>Volatility=%{y:.4f}"
+                    "<br>Sharpe-like=%{customdata[3]:.3f}"
+                    "<extra></extra>"
+                ),
+            )
         )
         self._apply_base_layout(
             fig,
@@ -457,6 +469,10 @@ class PortfolioVisualizer:
         filename: str | None = None,
     ) -> go.Figure:
         construction = self._get_construction(construction_name)
+        if not self._is_markowitz_construction(construction):
+            raise ValueError(
+                f"The efficient frontier is only available for Markowitz constructions. Got '{construction_name}'."
+            )
         returns_frame = self._get_construction_returns(construction_name).dropna(axis=0, how="any")
         if returns_frame.shape[0] < 2 or returns_frame.shape[1] < 2:
             raise ValueError(f"The construction window for '{construction_name}' does not have enough data for an efficient frontier.")
@@ -734,6 +750,12 @@ class PortfolioVisualizer:
 
     def _get_construction(self, construction_name: str):
         return self.universe.get_construction(construction_name)
+
+    def _is_markowitz_construction(self, construction) -> bool:
+        method_id = str(getattr(construction, "method_id", "") or getattr(construction, "method", "")).lower()
+        name = str(getattr(construction, "name", "")).lower()
+        display_name = str(getattr(construction, "display_name", "")).lower()
+        return any("markowitz" in value for value in (method_id, name, display_name))
 
     def _get_weights(self, construction_name: str, *, drop_zero: bool, sort: bool) -> pd.Series:
         construction = self._get_construction(construction_name)
@@ -1082,19 +1104,29 @@ class PortfolioVisualizer:
     def save_all_construction_plots(self) -> dict[str, list[str]]:
         saved: dict[str, list[str]] = {}
         for construction_name in self.universe.list_constructions():
+            construction = self._get_construction(construction_name)
             self.plot_weights_bar(construction_name, save_html=True)
             self.plot_weights_pie(construction_name, save_html=True)
             self.plot_weights_scatter(construction_name, save_html=True)
             self.plot_weights_bubble(construction_name, save_html=True)
-            self.plot_efficient_frontier(construction_name, save_html=True)
             saved_files = [
                 "weights_bar.html",
                 "weights_pie.html",
                 "weights_scatter.html",
                 "weights_bubble.html",
-                "efficient_frontier.html",
             ]
-            hrp_diagnostics = self._get_construction(construction_name).hrp_diagnostics
+            frontier_path = self._resolve_save_path(
+                kind="construction",
+                construction_name=construction_name,
+                filename="efficient_frontier.html",
+            )
+            if self._is_markowitz_construction(construction):
+                self.plot_efficient_frontier(construction_name, save_html=True)
+                saved_files.append("efficient_frontier.html")
+            else:
+                frontier_path.unlink(missing_ok=True)
+
+            hrp_diagnostics = construction.hrp_diagnostics
             if hrp_diagnostics is not None:
                 if hrp_diagnostics.linkage_matrix is not None:
                     self.plot_hrp_dendrogram(construction_name, save_html=True)

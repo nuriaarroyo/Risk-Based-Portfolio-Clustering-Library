@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
@@ -144,7 +145,20 @@ class DummyUniversePlots(DummyUniversePaths):
                 summary_metrics={},
             ),
         )
-        self.constructions = {hrp.name: hrp}
+        markowitz = ConstructionResult(
+            name="markowitz_max_sharpe",
+            method_id="markowitz_max_sharpe",
+            display_name="Markowitz Max Sharpe",
+            weights=pd.Series({"AAPL": 0.55, "MSFT": 0.30, "JPM": 0.15}),
+            selected_assets=["AAPL", "MSFT", "JPM"],
+            params={"allow_short": False},
+            metrics_insample={},
+            construction_start=pd.Timestamp("2024-01-02"),
+            construction_end=pd.Timestamp("2024-01-05"),
+            backtest_result=hrp.backtest_result,
+            mc_result=hrp.mc_result,
+        )
+        self.constructions = {hrp.name: hrp, markowitz.name: markowitz}
         self._construction_names = list(self.constructions)
 
     def get_construction(self, construction_name: str) -> ConstructionResult:
@@ -234,7 +248,7 @@ def test_visualizer_diagnostic_plot_helpers_save_in_clean_locations() -> None:
         visualizer = PortfolioVisualizer(universe)
 
         bubble = visualizer.plot_weights_bubble("hrp_style", save_html=True)
-        frontier = visualizer.plot_efficient_frontier("hrp_style", save_html=True)
+        frontier = visualizer.plot_efficient_frontier("markowitz_max_sharpe", save_html=True)
         corr = visualizer.plot_correlation_heatmap(save_html=True)
         cov = visualizer.plot_correlation_heatmap(kind="covariance", save_html=True)
         dendrogram = visualizer.plot_hrp_dendrogram("hrp_style", save_html=True)
@@ -252,7 +266,7 @@ def test_visualizer_diagnostic_plot_helpers_save_in_clean_locations() -> None:
         assert isinstance(drawdown, go.Figure)
 
         assert (universe.plots_dir / "constructions" / "hrp_style" / "weights_bubble.html").exists()
-        assert (universe.plots_dir / "constructions" / "hrp_style" / "efficient_frontier.html").exists()
+        assert (universe.plots_dir / "constructions" / "markowitz_max_sharpe" / "efficient_frontier.html").exists()
         assert (universe.plots_dir / "comparisons" / "correlation_heatmap.html").exists()
         assert (universe.plots_dir / "comparisons" / "covariance_heatmap.html").exists()
         assert (universe.plots_dir / "constructions" / "hrp_style" / "hrp_dendrogram.html").exists()
@@ -272,6 +286,7 @@ def test_visualizer_uses_consistent_accessible_palette_for_key_plots() -> None:
         pie = visualizer.plot_weights_pie("hrp_style")
         mc_paths = visualizer.plot_mc_paths("hrp_style", max_paths=3)
         mc_distribution = visualizer.plot_mc_distribution("hrp_style")
+        bubble = visualizer.plot_weights_bubble("hrp_style")
 
         assert pie.data[0]["outsidetextfont"]["color"] == visualizer._TEXT_COLOR
         assert pie.data[0]["marker"]["colors"][0] == visualizer._DISCRETE_COLORS[0]
@@ -281,6 +296,8 @@ def test_visualizer_uses_consistent_accessible_palette_for_key_plots() -> None:
 
         assert mc_distribution.data[0]["marker"]["color"] == visualizer._DISCRETE_COLORS[0]
         assert mc_distribution.data[1]["line"]["color"] == visualizer._DISCRETE_COLORS[1]
+        bubble_sizes = list(bubble.data[0]["marker"]["size"])
+        assert bubble_sizes[0] > bubble_sizes[1] > bubble_sizes[2]
     finally:
         shutil.rmtree(root, ignore_errors=True)
 
@@ -292,7 +309,7 @@ def test_visualizer_adds_axis_padding_for_label_heavy_plots() -> None:
         visualizer = PortfolioVisualizer(universe)
 
         bar = visualizer.plot_weights_bar("hrp_style")
-        frontier = visualizer.plot_efficient_frontier("hrp_style")
+        frontier = visualizer.plot_efficient_frontier("markowitz_max_sharpe")
         drawdown = visualizer.plot_drawdown("hrp_style")
 
         max_weight = max(bar.data[0]["y"])
@@ -303,6 +320,18 @@ def test_visualizer_adds_axis_padding_for_label_heavy_plots() -> None:
 
         drawdown_values = np.asarray(drawdown.data[0]["y"], dtype=float)
         assert drawdown.layout.yaxis.range[0] < float(drawdown_values.min())
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
+def test_visualizer_restricts_efficient_frontier_to_markowitz() -> None:
+    root = fresh_test_root("frontier_scope")
+    try:
+        universe = DummyUniversePlots(root)
+        visualizer = PortfolioVisualizer(universe)
+
+        with pytest.raises(ValueError, match="only available for Markowitz"):
+            visualizer.plot_efficient_frontier("hrp_style")
     finally:
         shutil.rmtree(root, ignore_errors=True)
 
