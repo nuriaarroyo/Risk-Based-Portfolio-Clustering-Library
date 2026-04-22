@@ -6,4 +6,8 @@ This is the canonical thesis-facing export surface for the final experiment.
 - `tables/` contains the aggregated summary tables referenced by the thesis.
 - `experiment_config.json` records the top-level configuration for this curated export set.
 
-Large generated run artifacts such as `framework_runs/` and raw intermediate data are treated as reproducible local outputs rather than core repository content.
+If you need the full local experiment outputs, including per-run plots and constructor-specific diagnostics, see:
+
+- `outputs/final_experimental_setup/framework_runs/`
+
+Large generated run artifacts and raw intermediate data are treated as reproducible local outputs rather than the main thesis-facing repository surface.

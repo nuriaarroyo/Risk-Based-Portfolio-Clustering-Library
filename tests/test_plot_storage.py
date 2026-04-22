@@ -21,6 +21,7 @@ from scripts.run_final_experimental_setup import save_mc_terminal_comparison_plo
 class DummyUniversePaths:
     def __init__(self, root: Path) -> None:
         self.output_dir = root / "run"
+        self.data_dir = self.output_dir / "data"
         self.constructions_dir = self.output_dir / "constructions"
         self.backtests_dir = self.output_dir / "backtests"
         self.monte_carlo_dir = self.output_dir / "monte_carlo"
@@ -28,6 +29,7 @@ class DummyUniversePaths:
         self._construction_names = ["equal_weight"]
         for path in (
             self.output_dir,
+            self.data_dir,
             self.constructions_dir,
             self.backtests_dir,
             self.monte_carlo_dir,
@@ -61,6 +63,19 @@ class DummyUniversePaths:
             path = path / construction_name
         path.mkdir(parents=True, exist_ok=True)
         return path
+
+    def save_market_data(self) -> Path:
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        return self.data_dir
+
+    def save_all_constructions(self) -> dict[str, Path]:
+        return {name: self.get_construction_dir(name) for name in self.list_constructions()}
+
+    def save_all_backtests(self) -> dict[str, Path]:
+        return {name: self.get_backtest_dir(name) for name in self.list_constructions()}
+
+    def save_all_monte_carlo(self) -> dict[str, Path]:
+        return {name: self.get_mc_dir(name) for name in self.list_constructions()}
 
 
 class DummyUniversePlots(DummyUniversePaths):
@@ -284,6 +299,7 @@ def test_visualizer_uses_consistent_accessible_palette_for_key_plots() -> None:
         visualizer = PortfolioVisualizer(universe)
 
         pie = visualizer.plot_weights_pie("hrp_style")
+        scatter = visualizer.plot_weights_scatter("hrp_style")
         mc_paths = visualizer.plot_mc_paths("hrp_style", max_paths=3)
         mc_distribution = visualizer.plot_mc_distribution("hrp_style")
         bubble = visualizer.plot_weights_bubble("hrp_style")
@@ -296,6 +312,7 @@ def test_visualizer_uses_consistent_accessible_palette_for_key_plots() -> None:
 
         assert mc_distribution.data[0]["marker"]["color"] == visualizer._DISCRETE_COLORS[0]
         assert mc_distribution.data[1]["line"]["color"] == visualizer._DISCRETE_COLORS[1]
+        assert scatter.data[0]["marker"]["size"] == 14
         bubble_sizes = list(bubble.data[0]["marker"]["size"])
         assert bubble_sizes[0] > bubble_sizes[1] > bubble_sizes[2]
     finally:
@@ -332,6 +349,26 @@ def test_visualizer_restricts_efficient_frontier_to_markowitz() -> None:
 
         with pytest.raises(ValueError, match="only available for Markowitz"):
             visualizer.plot_efficient_frontier("hrp_style")
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
+def test_save_everything_includes_universe_heatmaps() -> None:
+    root = fresh_test_root("save_everything_heatmaps")
+    try:
+        universe = DummyUniversePlots(root)
+        visualizer = PortfolioVisualizer(universe)
+
+        saved = visualizer.save_everything(max_mc_paths=3)
+
+        assert saved["universe_plots"] == [
+            "correlation_heatmap.html",
+            "covariance_heatmap.html",
+        ]
+        assert (universe.plots_dir / "comparisons" / "correlation_heatmap.html").exists()
+        assert (universe.plots_dir / "comparisons" / "covariance_heatmap.html").exists()
+        assert (universe.plots_dir / "constructions" / "hrp_style" / "hrp_dendrogram.html").exists()
+        assert (universe.plots_dir / "constructions" / "markowitz_max_sharpe" / "efficient_frontier.html").exists()
     finally:
         shutil.rmtree(root, ignore_errors=True)
 

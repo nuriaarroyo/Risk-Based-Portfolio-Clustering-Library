@@ -8,14 +8,22 @@ This project currently assumes an existing Python environment with the required 
 From the repository root, run:
 
 ```powershell
-python scripts/run_final_experimental_setup.py --source processed
+python scripts/run_final_experimental_setup.py
 ```
 
 This writes the experiment outputs under:
 
 ```text
 outputs/final_experimental_setup/
+|- data/
+|- framework_runs/
+|- tables/
+`- experiment_config.json
 ```
+
+With the current runner, the default `--source auto` mode prefers the saved thesis snapshot at
+`outputs/final_experimental_setup/data/yfinance_final_setup_raw.csv` when it exists, and otherwise
+falls back to the processed dataset.
 
 ## Existing Local Snapshot
 
@@ -25,7 +33,8 @@ If you already have a Yahoo-style CSV snapshot, you can run the full experiment 
 python scripts/run_final_experimental_setup.py --source local --local-path outputs/final_experimental_setup/data/yfinance_final_setup_raw.csv
 ```
 
-This is the cleanest way to reuse an existing snapshot without relying on live download behavior.
+This is the explicit version of the same snapshot-backed path. If you omit `--local-path`, the
+runner uses that saved thesis snapshot automatically.
 
 ## Faster Verification Run
 
@@ -64,6 +73,9 @@ That keeps `--source yfinance` as the main entrypoint while still making the sav
 
 ## Where To Read Results
 
+- Full local framework outputs live in `outputs/final_experimental_setup/framework_runs/`.
+- Per-run plots are stored under each run's `plots/` tree.
+- Method-specific construction diagnostics are stored under `constructions/<method>/diagnostics/`.
 - Curated thesis-facing outputs live in `outputs/data_exports/final_experimental_setup/`.
 - Thesis notebooks live in `notebooks/thesis/`.
 - The active results-reading workbench is `notebooks/final_experimental_setup/read_final_results.ipynb`.

@@ -122,6 +122,10 @@ The library writes a standard per-run structure under:
 outputs/runs/<universe_name>/
 |- data/
 |- constructions/
+|  `- <method_id>/
+|     `- diagnostics/
+|        |- hrp/         # when available
+|        `- markowitz/   # when available
 |- backtests/
 |- monte_carlo/
 `- plots/
@@ -133,16 +137,30 @@ outputs/runs/<universe_name>/
 
 The storage split is intentional:
 
-- `constructions/`, `backtests/`, and `monte_carlo/` keep saved weights, return series, simulation tables, and JSON metadata
+- `constructions/`, `backtests/`, and `monte_carlo/` keep saved weights, return series, simulation tables, JSON metadata, and method-specific diagnostics
 - `plots/` keeps HTML figures only, grouped by plot type instead of mixing them into the data folders
 - cross-method Monte Carlo comparison data is stored at `monte_carlo/comparison_terminal_values.csv`
+- HRP constructions can save clustering diagnostics such as distance matrices and linkage data under `constructions/<method>/diagnostics/hrp/`
+- Markowitz constructions can save optimizer artifacts such as expected returns, covariance, and efficient frontier points under `constructions/<method>/diagnostics/markowitz/`
 
 Constructors use:
 
 - `method_id` for stable folder-safe identifiers such as `naive_risk_parity`
 - `display_name` for human-readable plot titles and summaries
 
-For the thesis workflow, the experiment pipeline also maintains a curated export surface under:
+For the thesis workflow, the experiment pipeline writes full local run artifacts under:
+
+```text
+outputs/final_experimental_setup/
+|- data/
+|- framework_runs/
+|- tables/
+`- experiment_config.json
+```
+
+Each entry in `framework_runs/` mirrors the standard run layout above, including plots and any method-specific construction diagnostics.
+
+The thesis workflow also maintains a curated export surface under:
 
 ```text
 outputs/data_exports/final_experimental_setup/
@@ -190,7 +208,7 @@ honores_actuaria/
 
 ## Current Status
 
-This is an active thesis project, not a finished production package. The core research workflow is implemented and runnable, and the repository includes a working library structure, curated thesis notebooks, and reproducible exported results.
+This is a thesis-ready research repository, not a finished production package. The core workflow is implemented and runnable, and the repository includes a working library structure, curated thesis notebooks, and reproducible exported results.
 
 The current cleanup has focused on repository presentation rather than changing the core library logic:
 
@@ -198,4 +216,4 @@ The current cleanup has focused on repository presentation rather than changing 
 - loose exported images were moved out of the live notebook workspace
 - large generated outputs were removed from git tracking while remaining reproducible locally
 
-Packaging and final polish are still in progress.
+Packaging and production-style distribution are intentionally out of scope for the thesis submission version.

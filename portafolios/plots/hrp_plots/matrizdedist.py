@@ -8,39 +8,46 @@ import plotly.graph_objects as go
 from portafolios.constructores.hrp_style.hrp_core import HRPStyle
 
 
-def matriz_distancias(
+def plot_distance_matrix(
     hrp: HRPStyle,
-    ordenar_por_clusters: bool = True,
+    reorder_by_clusters: bool = True,
     file_path: Optional[str] = None,
 ) -> go.Figure:
     """
-    Plotly heatmap of the distance matrix used by HRP.
+    Plot the HRP distance matrix as a heatmap.
 
-    hrp: `HRPStyle` object already used in `p.construir(hrp)`
+    Parameters
+    ----------
+    hrp
+        `HRPStyle` object that has already been used in the HRP construction step.
+    reorder_by_clusters
+        If True, reorder rows and columns by the latest cluster ordering when available.
+    file_path
+        Optional HTML path where the figure should be saved.
     """
+
     if not hasattr(hrp, "last_dist"):
-        raise RuntimeError("Este HRPStyle no tiene 'last_dist'. ¿Ya corriste p.construir(hrp)?")
+        raise RuntimeError("This HRPStyle instance does not expose 'last_dist'. Run the HRP construction step first.")
 
-    dist: pd.DataFrame = hrp.last_dist.copy()
+    distance_matrix: pd.DataFrame = hrp.last_dist.copy()
 
-    # Reorder by clusters when available.
-    if ordenar_por_clusters and hasattr(hrp, "last_clusters"):
-        ordered = [asset for cluster in hrp.last_clusters for asset in cluster]
-        ordered = [asset for asset in ordered if asset in dist.index]
-        dist = dist.loc[ordered, ordered]
+    if reorder_by_clusters and hasattr(hrp, "last_clusters"):
+        ordered_assets = [asset for cluster in hrp.last_clusters for asset in cluster]
+        ordered_assets = [asset for asset in ordered_assets if asset in distance_matrix.index]
+        distance_matrix = distance_matrix.loc[ordered_assets, ordered_assets]
 
     fig = go.Figure(
         data=go.Heatmap(
-            z=dist.values,
-            x=list(dist.columns),
-            y=list(dist.index),
+            z=distance_matrix.values,
+            x=list(distance_matrix.columns),
+            y=list(distance_matrix.index),
             colorscale="RdBu",
-            colorbar=dict(title="Distancia"),
+            colorbar=dict(title="Distance"),
         )
     )
 
     fig.update_layout(
-        title="Matriz de distancias de De Prado ",
+        title="De Prado Distance Matrix",
         xaxis=dict(tickangle=45),
         yaxis=dict(autorange="reversed"),
         width=800,
@@ -52,3 +59,18 @@ def matriz_distancias(
 
     fig.show()
     return fig
+
+
+def matriz_distancias(
+    hrp: HRPStyle,
+    ordenar_por_clusters: bool = True,
+    file_path: Optional[str] = None,
+) -> go.Figure:
+    """
+    Backward-compatible wrapper for the original Spanish helper name.
+    """
+
+    return plot_distance_matrix(hrp, reorder_by_clusters=ordenar_por_clusters, file_path=file_path)
+
+
+__all__ = ["plot_distance_matrix", "matriz_distancias"]

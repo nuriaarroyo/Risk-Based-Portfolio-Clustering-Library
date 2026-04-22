@@ -70,19 +70,31 @@ def risk_contributions_from_cov(
     as_fraction: bool = True,
 ) -> pd.Series:
     """
-    Risk contribution: RC_i = w_i * (Sigma w)_i / sigma_p.
-    Returns fractions when `as_fraction=True`.
+    Volatility risk contribution for each asset.
+
+    Component contribution to portfolio volatility:
+        RC_i = w_i * (Sigma w)_i / sigma_p
+
+    Fractional contribution:
+        FRC_i = RC_i / sigma_p
+
+    Returns fractions when `as_fraction=True`, otherwise returns component
+    contributions that add up to portfolio volatility.
     """
-    sigma_matrix = cov.reindex(index=weights.index, columns=weights.index).fillna(0).values
+    aligned_weights = weights.fillna(0.0).astype(float)
+    sigma_matrix = cov.reindex(index=aligned_weights.index, columns=aligned_weights.index).fillna(0.0).values
     if ann_factor is not None:
         sigma_matrix = sigma_matrix * ann_factor
-    w = weights.fillna(0).values.reshape(-1, 1)
-    port_vol = float(np.sqrt(w.T @ sigma_matrix @ w))
+    w = aligned_weights.values.reshape(-1, 1)
+    portfolio_variance = float((w.T @ sigma_matrix @ w).item())
+    port_vol = float(np.sqrt(portfolio_variance))
     if port_vol == 0 or np.isnan(port_vol):
-        return pd.Series(np.nan, index=weights.index)
+        return pd.Series(np.nan, index=aligned_weights.index)
     marginal = (sigma_matrix @ w)[:, 0]
-    rc = (weights.values * marginal) / (port_vol if as_fraction else 1.0)
-    return pd.Series(rc, index=weights.index)
+    component_rc = (aligned_weights.values * marginal) / port_vol
+    if as_fraction:
+        return pd.Series(component_rc / port_vol, index=aligned_weights.index)
+    return pd.Series(component_rc, index=aligned_weights.index)
 
 
 # ============================================================
@@ -166,6 +178,13 @@ def sharpe_from_series(
     return sharpe_ratio if ann_factor is None else float(sharpe_ratio * np.sqrt(ann_factor))
 
 
+def max_drawdown_from_series(portfolio_returns: pd.Series) -> float:
+    drawdown = drawdown_series(portfolio_returns)
+    if drawdown.empty:
+        return float("nan")
+    return float(drawdown.min())
+
+
 def realized_total_return(returns: pd.DataFrame, weights: pd.Series) -> float:
     return realized_total_return_from_series(portfolio_return_series(returns, weights))
 
@@ -197,8 +216,7 @@ def realized_annualized_volatility(
 
 
 def max_drawdown(returns: pd.DataFrame, weights: pd.Series) -> float:
-    dd = drawdown_series(portfolio_return_series(returns, weights)).min()
-    return float(dd)
+    return max_drawdown_from_series(portfolio_return_series(returns, weights))
 
 
 def downside_deviation(
@@ -208,7 +226,22 @@ def downside_deviation(
     mar_per_period: float = 0.0,
     ann_factor: Optional[int] = None,
 ) -> float:
-    rp = portfolio_return_series(returns, weights)
+    return downside_deviation_from_series(
+        portfolio_return_series(returns, weights),
+        mar_per_period=mar_per_period,
+        ann_factor=ann_factor,
+    )
+
+
+def downside_deviation_from_series(
+    portfolio_returns: pd.Series,
+    *,
+    mar_per_period: float = 0.0,
+    ann_factor: Optional[int] = None,
+) -> float:
+    rp = portfolio_returns.dropna()
+    if rp.empty:
+        return float("nan")
     downside = np.clip(rp - mar_per_period, None, 0.0)
     dd = np.sqrt((downside**2).mean())
     return dd if ann_factor is None else dd * np.sqrt(ann_factor)
@@ -221,34 +254,28 @@ def sortino(
     mar_per_period: float = 0.0,
     ann_factor: Optional[int] = None,
 ) -> float:
-    er = portfolio_return_series(returns, weights).mean()
-    dd = downside_deviation(returns, weights, mar_per_period=mar_per_period, ann_factor=None)
+    return sortino_from_series(
+        portfolio_return_series(returns, weights),
+        mar_per_period=mar_per_period,
+        ann_factor=ann_factor,
+    )
+
+
+def sortino_from_series(
+    portfolio_returns: pd.Series,
+    *,
+    mar_per_period: float = 0.0,
+    ann_factor: Optional[int] = None,
+) -> float:
+    rp = portfolio_returns.dropna()
+    if rp.empty:
+        return float("nan")
+    er = float(rp.mean())
+    dd = downside_deviation_from_series(rp, mar_per_period=mar_per_period, ann_factor=None)
     if dd == 0 or np.isnan(dd):
         return float("nan")
     sortino_ratio = (er - mar_per_period) / dd
     return sortino_ratio if ann_factor is None else sortino_ratio * np.sqrt(ann_factor)
-
-
-def calmar_from_moments(
-    mu: pd.Series,
-    cov: pd.DataFrame,
-    weights: pd.Series,
-    *,
-    ann_factor: Optional[int] = None,
-    returns_for_mdd: Optional[pd.DataFrame] = None,
-) -> float:
-    """
-    Calmar = moment-based return / |MDD| from the realized path.
-    Pass `returns_for_mdd` (per period) to estimate maximum drawdown.
-    """
-    if returns_for_mdd is None:
-        return float("nan")
-    er = expected_return_from_moments(mu, weights, ann_factor=ann_factor)
-    dd = max_drawdown(returns_for_mdd, weights)
-    denom = abs(dd) if dd is not None else np.nan
-    if denom == 0 or np.isnan(denom):
-        return float("nan")
-    return float(er / denom)
 
 
 # Gaussian VaR/CVaR from the realized path.
@@ -260,10 +287,29 @@ def var_gaussian(
     ann_factor: Optional[int] = None,
     ddof: int = 1,
 ) -> float:
+    return var_gaussian_from_series(
+        portfolio_return_series(returns, weights),
+        alpha=alpha,
+        ann_factor=ann_factor,
+        ddof=ddof,
+    )
+
+
+def var_gaussian_from_series(
+    portfolio_returns: pd.Series,
+    *,
+    alpha: float = 0.95,
+    ann_factor: Optional[int] = None,
+    ddof: int = 1,
+) -> float:
     from scipy.stats import norm
 
-    rp = portfolio_return_series(returns, weights)
+    rp = portfolio_returns.dropna()
+    if rp.empty:
+        return float("nan")
     mu, sigma = rp.mean(), rp.std(ddof=ddof)
+    if np.isnan(mu) or np.isnan(sigma):
+        return float("nan")
     if ann_factor is not None:
         mu = mu * ann_factor
         sigma = sigma * np.sqrt(ann_factor)
@@ -280,16 +326,35 @@ def cvar_gaussian(
     ann_factor: Optional[int] = None,
     ddof: int = 1,
 ) -> float:
+    return cvar_gaussian_from_series(
+        portfolio_return_series(returns, weights),
+        alpha=alpha,
+        ann_factor=ann_factor,
+        ddof=ddof,
+    )
+
+
+def cvar_gaussian_from_series(
+    portfolio_returns: pd.Series,
+    *,
+    alpha: float = 0.95,
+    ann_factor: Optional[int] = None,
+    ddof: int = 1,
+) -> float:
     from scipy.stats import norm
 
-    rp = portfolio_return_series(returns, weights)
+    rp = portfolio_returns.dropna()
+    if rp.empty:
+        return float("nan")
     mu, sigma = rp.mean(), rp.std(ddof=ddof)
+    if np.isnan(mu) or np.isnan(sigma):
+        return float("nan")
     if ann_factor is not None:
         mu = mu * ann_factor
         sigma = sigma * np.sqrt(ann_factor)
     z = norm.ppf(1 - alpha)
     phi = np.exp(-0.5 * z**2) / np.sqrt(2 * np.pi)
-    es = -(mu + sigma * (phi / (1 - alpha)))
+    es = -(mu - sigma * (phi / (1 - alpha)))
     return float(max(es, 0.0))
 
 
@@ -302,7 +367,22 @@ def tracking_error(
     ann_factor: Optional[int] = None,
     ddof: int = 1,
 ) -> float:
-    rp = portfolio_return_series(returns, weights)
+    return tracking_error_from_series(
+        portfolio_return_series(returns, weights),
+        benchmark,
+        ann_factor=ann_factor,
+        ddof=ddof,
+    )
+
+
+def tracking_error_from_series(
+    portfolio_returns: pd.Series,
+    benchmark: pd.Series,
+    *,
+    ann_factor: Optional[int] = None,
+    ddof: int = 1,
+) -> float:
+    rp = portfolio_returns.dropna()
     joint = pd.concat([rp, benchmark], axis=1).dropna()
     if joint.shape[1] < 2 or joint.empty:
         return float("nan")
@@ -320,7 +400,24 @@ def alpha_beta(
     ann_factor: Optional[int] = None,
     ddof: int = 1,
 ) -> Tuple[float, float]:
-    rp = portfolio_return_series(returns, weights)
+    return alpha_beta_from_series(
+        portfolio_return_series(returns, weights),
+        benchmark,
+        rf_per_period=rf_per_period,
+        ann_factor=ann_factor,
+        ddof=ddof,
+    )
+
+
+def alpha_beta_from_series(
+    portfolio_returns: pd.Series,
+    benchmark: pd.Series,
+    *,
+    rf_per_period: float = 0.0,
+    ann_factor: Optional[int] = None,
+    ddof: int = 1,
+) -> Tuple[float, float]:
+    rp = portfolio_returns.dropna()
     joint = pd.concat([rp, benchmark], axis=1).dropna()
     if joint.shape[1] < 2 or joint.empty:
         return float("nan"), float("nan")
@@ -343,7 +440,22 @@ def information_ratio(
     ann_factor: Optional[int] = None,
     ddof: int = 1,
 ) -> float:
-    rp = portfolio_return_series(returns, weights)
+    return information_ratio_from_series(
+        portfolio_return_series(returns, weights),
+        benchmark,
+        ann_factor=ann_factor,
+        ddof=ddof,
+    )
+
+
+def information_ratio_from_series(
+    portfolio_returns: pd.Series,
+    benchmark: pd.Series,
+    *,
+    ann_factor: Optional[int] = None,
+    ddof: int = 1,
+) -> float:
+    rp = portfolio_returns.dropna()
     joint = pd.concat([rp, benchmark], axis=1).dropna()
     if joint.shape[1] < 2 or joint.empty:
         return float("nan")

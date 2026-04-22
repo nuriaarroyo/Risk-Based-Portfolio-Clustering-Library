@@ -140,15 +140,14 @@ class PortfolioVisualizer:
         fig = px.scatter(
             x=weights.index,
             y=weights.values,
-            size=np.abs(weights.values),
-            labels={"x": "Asset", "y": "Weight", "size": "Abs Weight"},
+            labels={"x": "Asset", "y": "Weight"},
             title=f"Weights Scatter - {construction_name}",
         )
         fig.update_traces(
             mode="markers+text",
             text=weights.index,
             textposition="top center",
-            marker=dict(color=colors, line=dict(color=self._BACKGROUND_COLOR, width=1)),
+            marker=dict(color=colors, size=14, line=dict(color=self._BACKGROUND_COLOR, width=1)),
             textfont=dict(color=self._TEXT_COLOR),
             hovertemplate="Asset=%{x}<br>Weight=%{y:.2%}<extra></extra>",
             cliponaxis=False,
@@ -584,7 +583,7 @@ class PortfolioVisualizer:
     ) -> go.Figure:
         available = self._available_backtests()
         if not available:
-            raise ValueError("No hay backtests guardados en el universe.")
+            raise ValueError("The universe does not include any saved backtests.")
 
         wealth_series: dict[str, pd.Series] = {}
         for name, backtest in available.items():
@@ -595,7 +594,7 @@ class PortfolioVisualizer:
 
         comparison_df = pd.concat(wealth_series.values(), axis=1, join="outer").sort_index()
         if comparison_df.empty:
-            raise ValueError("No hay datos suficientes para comparar backtests.")
+            raise ValueError("There is not enough backtest data to compare constructions.")
 
         fig = go.Figure()
         colors = self._colors_for_items(comparison_df.columns)
@@ -693,7 +692,7 @@ class PortfolioVisualizer:
         mc = self._get_mc(construction_name)
         terminal_values = np.asarray(mc.terminal_values, dtype=float)
         if terminal_values.size == 0:
-            raise ValueError(f"La construccion '{construction_name}' no tiene valores terminales para graficar.")
+            raise ValueError(f"The construction '{construction_name}' does not include terminal values to plot.")
 
         mean_value = float(np.mean(terminal_values))
         median_value = float(np.median(terminal_values))
@@ -763,7 +762,7 @@ class PortfolioVisualizer:
         if drop_zero:
             weights = weights[weights != 0]
         if weights.empty:
-            raise ValueError(f"La construccion '{construction_name}' no tiene pesos para graficar.")
+            raise ValueError(f"The construction '{construction_name}' does not include weights to plot.")
         if sort:
             weights = weights.sort_values(ascending=False)
         return weights
@@ -771,13 +770,13 @@ class PortfolioVisualizer:
     def _get_backtest(self, construction_name: str):
         construction = self._get_construction(construction_name)
         if construction.backtest_result is None:
-            raise ValueError(f"La construccion '{construction_name}' no tiene BacktestResult adjunto.")
+            raise ValueError(f"The construction '{construction_name}' does not include an attached BacktestResult.")
         return construction.backtest_result
 
     def _get_mc(self, construction_name: str):
         construction = self._get_construction(construction_name)
         if construction.mc_result is None:
-            raise ValueError(f"La construccion '{construction_name}' no tiene MonteCarloResult adjunto.")
+            raise ValueError(f"The construction '{construction_name}' does not include an attached MonteCarloResult.")
         return construction.mc_result
 
     def _get_hrp_diagnostics(self, construction_name: str):
@@ -854,7 +853,7 @@ class PortfolioVisualizer:
         if end_date is not None:
             out = out.loc[out.index <= pd.Timestamp(end_date)]
         if out.empty:
-            raise ValueError("No hay datos del backtest en la ventana solicitada.")
+            raise ValueError("There is no backtest data inside the requested window.")
         return out
 
     def _paths_to_frame(self, paths: pd.DataFrame | np.ndarray) -> pd.DataFrame:
@@ -1169,6 +1168,14 @@ class PortfolioVisualizer:
             ]
         return saved
 
+    def save_all_universe_plots(self) -> list[str]:
+        self.plot_correlation_heatmap(kind="correlation", save_html=True)
+        self.plot_correlation_heatmap(kind="covariance", save_html=True)
+        return [
+            "correlation_heatmap.html",
+            "covariance_heatmap.html",
+        ]
+
     def save_everything(self, max_mc_paths: int = 100) -> dict[str, Any]:
         market_data_dir = self.universe.data_dir
         self.universe.save_market_data()
@@ -1176,6 +1183,7 @@ class PortfolioVisualizer:
         backtests = self.universe.save_all_backtests()
         monte_carlo = self.universe.save_all_monte_carlo()
         self.cleanup_legacy_plot_outputs()
+        universe_plots = self.save_all_universe_plots()
         construction_plots = self.save_all_construction_plots()
         backtest_plots = self.save_all_backtest_plots()
         monte_carlo_plots = self.save_all_monte_carlo_plots(max_paths=max_mc_paths)
@@ -1185,6 +1193,7 @@ class PortfolioVisualizer:
             "constructions": constructions,
             "backtests": backtests,
             "monte_carlo": monte_carlo,
+            "universe_plots": universe_plots,
             "construction_plots": construction_plots,
             "backtest_plots": backtest_plots,
             "monte_carlo_plots": monte_carlo_plots,

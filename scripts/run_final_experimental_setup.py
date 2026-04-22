@@ -255,6 +255,40 @@ def resolve_local_csv_path(path: str | Path) -> Path:
     return PROJECT_ROOT / candidate
 
 
+def resolve_source_selection(
+    source: str,
+    local_path: str | Path | None,
+) -> tuple[str, Path | None]:
+    if source == "processed":
+        return "processed", None
+
+    if source == "local":
+        resolved = resolve_local_csv_path(local_path) if local_path is not None else YF_SAVE_PATH
+        if not resolved.exists():
+            raise FileNotFoundError(
+                f"The local snapshot was not found at {resolved}. "
+                "Pass --local-path explicitly or restore the saved thesis snapshot."
+            )
+        return "local", resolved
+
+    if source == "yfinance":
+        return "yfinance", None
+
+    if source == "auto":
+        if local_path is not None:
+            resolved = resolve_local_csv_path(local_path)
+            if not resolved.exists():
+                raise FileNotFoundError(f"The requested local snapshot was not found at {resolved}.")
+            return "local", resolved
+        if YF_SAVE_PATH.exists():
+            return "local", YF_SAVE_PATH
+        if PROCESSED_DATA_PATH.exists():
+            return "processed", None
+        return "yfinance", None
+
+    raise ValueError("source must be one of: 'auto', 'processed', 'local', or 'yfinance'.")
+
+
 def load_price_source(
     source: str,
     tickers: list[str],
@@ -269,7 +303,7 @@ def load_price_source(
 
     if source == "local":
         if local_path is None:
-            raise ValueError("source='local' requiere `local_path` con un CSV estilo yfinance.")
+            raise ValueError("source='local' requires a Yahoo-style CSV snapshot path.")
         return local_loader(
             path=resolve_local_csv_path(local_path),
             tickers=tickers,
@@ -651,14 +685,21 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run the final thesis experimental setup.")
     parser.add_argument(
         "--source",
-        choices=["processed", "local", "yfinance"],
-        default="processed",
-        help="Use the processed dataset, a local Yahoo-style CSV snapshot, or Yahoo Finance download logic.",
+        choices=["auto", "processed", "local", "yfinance"],
+        default="auto",
+        help=(
+            "Choose the experiment data source. 'auto' prefers the saved thesis snapshot at "
+            "outputs/final_experimental_setup/data/yfinance_final_setup_raw.csv, then falls back "
+            "to the processed dataset."
+        ),
     )
     parser.add_argument(
         "--local-path",
         default=None,
-        help="Path to an existing Yahoo-style CSV snapshot. Required when --source local.",
+        help=(
+            "Path to an existing Yahoo-style CSV snapshot. When omitted with --source local, "
+            "the runner uses outputs/final_experimental_setup/data/yfinance_final_setup_raw.csv."
+        ),
     )
     parser.add_argument(
         "--fail-fast",
@@ -675,11 +716,8 @@ def main() -> None:
     TABLE_DIR.mkdir(parents=True, exist_ok=True)
     FRAMEWORK_DIR.mkdir(parents=True, exist_ok=True)
 
-    if args.source == "local" and not args.local_path:
-        parser.error("--local-path is required when --source local.")
-
-    resolved_local_path = resolve_local_csv_path(args.local_path) if args.local_path else None
-    specs, prices = resolve_universes(args.source, local_path=resolved_local_path)
+    resolved_source, resolved_local_path = resolve_source_selection(args.source, args.local_path)
+    specs, prices = resolve_universes(resolved_source, local_path=resolved_local_path)
     all_rows: list[dict[str, object]] = []
     all_terminal_rows: list[dict[str, object]] = []
     run_configs: list[dict[str, object]] = []
@@ -692,7 +730,7 @@ def main() -> None:
                     result = run_one_experiment(
                         prices=prices,
                         spec=spec,
-                        source=args.source,
+                        source=resolved_source,
                         construction_date=construction_date,
                         estimation_months=months,
                         save_plots=not args.skip_plots,
@@ -759,10 +797,11 @@ def main() -> None:
     write_skipped(skipped)
 
     config_payload = {
-        "source": args.source,
+        "requested_source": args.source,
+        "source": resolved_source,
         "local_path": str(resolved_local_path) if resolved_local_path is not None else None,
-        "yfinance_snapshot_path": str(YF_SAVE_PATH) if args.source == "yfinance" else None,
-        "yfinance_catalog_path": str(YF_CATALOG_PATH) if args.source == "yfinance" else None,
+        "yfinance_snapshot_path": str(YF_SAVE_PATH) if resolved_source == "yfinance" else None,
+        "yfinance_catalog_path": str(YF_CATALOG_PATH) if resolved_source == "yfinance" else None,
         "construction_dates": CONSTRUCTION_DATES,
         "estimation_windows_months": ESTIMATION_WINDOWS_MONTHS,
         "evaluation": "12-month forward out-of-sample backtest",

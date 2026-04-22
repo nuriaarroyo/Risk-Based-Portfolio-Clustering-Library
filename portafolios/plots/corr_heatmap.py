@@ -11,81 +11,65 @@ if TYPE_CHECKING:
     from ..core.portafolio import PortfolioUniverse
 
 
-def corr_heatmap_portfolio(
+def plot_portfolio_heatmap(
     portfolio: "PortfolioUniverse",
     kind: Literal["correlation", "covariance"] = "correlation",
     round_decimals: int = 2,
 ) -> None:
     """
-    Plotly heatmap of the portfolio correlation or covariance matrix.
+    Plot the portfolio correlation or covariance matrix as a Plotly heatmap.
 
     Uses only objects already present on `PortfolioUniverse`:
     - `portfolio.correlation`
     - `portfolio.covariance`
-    - `portfolio.asset_log_returns` or `asset_returns` as fallback
+    - `portfolio.asset_log_returns` or `asset_returns` as a fallback
     - `portfolio.info["constructor_display_name"]` for the title
-
-    Parameters
-    ----------
-    kind : {"correlation", "covariance"}
-        - "correlation": use the correlation matrix.
-        - "covariance": use the covariance matrix.
-    round_decimals : int
-        Number of decimals shown in annotations.
     """
 
-    # Choose the base matrix.
     if kind == "correlation":
-        mat = portfolio.correlation
-        if mat is None:
-            # Fallback in case it was not computed during `preparar_datos`.
+        matrix = portfolio.correlation
+        if matrix is None:
             if portfolio.asset_log_returns is not None:
-                mat = portfolio.asset_log_returns.corr()
+                matrix = portfolio.asset_log_returns.corr()
             elif portfolio.asset_returns is not None:
-                mat = portfolio.asset_returns.corr()
+                matrix = portfolio.asset_returns.corr()
             else:
-                print("No hay retornos para calcular la correlacion.")
+                print("No returns are available to compute the correlation matrix.")
                 return
-        title_kind = "Correlacion"
+        title_kind = "Correlation"
     elif kind == "covariance":
-        mat = portfolio.covariance
-        if mat is None:
+        matrix = portfolio.covariance
+        if matrix is None:
             if portfolio.asset_log_returns is not None:
-                mat = portfolio.asset_log_returns.cov()
+                matrix = portfolio.asset_log_returns.cov()
             elif portfolio.asset_returns is not None:
-                mat = portfolio.asset_returns.cov()
+                matrix = portfolio.asset_returns.cov()
             else:
-                print("No hay retornos para calcular la covarianza.")
+                print("No returns are available to compute the covariance matrix.")
                 return
-        title_kind = "Covarianza"
+        title_kind = "Covariance"
     else:
-        raise ValueError("kind debe ser 'correlation' o 'covariance'.")
+        raise ValueError("`kind` must be 'correlation' or 'covariance'.")
 
-    if not isinstance(mat, pd.DataFrame) or mat.empty:
-        print("La matriz seleccionada esta vacia o no es un DataFrame.")
+    if not isinstance(matrix, pd.DataFrame) or matrix.empty:
+        print("The selected matrix is empty or is not a DataFrame.")
         return
 
-    # Ensure rows and columns are aligned in the same order.
-    mat = mat.loc[mat.index, mat.index]
+    matrix = matrix.loc[matrix.index, matrix.index]
+    values = matrix.values.astype(float)
+    tickers = matrix.index.tolist()
 
-    # Numeric values.
-    z = mat.values.astype(float)
-    tickers = mat.index.tolist()
-
-    # Color limits.
     if kind == "correlation":
         zmin, zmax = -1.0, 1.0
     else:
-        # Covariance can be highly unbalanced, so use symmetric limits.
-        max_abs = np.nanmax(np.abs(z)) if np.isfinite(z).any() else 1.0
+        max_abs = np.nanmax(np.abs(values)) if np.isfinite(values).any() else 1.0
         zmin, zmax = -max_abs, max_abs
 
-    # Rounded annotation text.
-    text = np.vectorize(lambda v: f"{v:.{round_decimals}f}")(z)
+    text = np.vectorize(lambda value: f"{value:.{round_decimals}f}")(values)
 
     fig = go.Figure(
         data=go.Heatmap(
-            z=z,
+            z=values,
             x=tickers,
             y=tickers,
             colorscale="RdBu",
@@ -103,9 +87,9 @@ def corr_heatmap_portfolio(
     )
 
     fig.update_layout(
-        title=f"Heatmap de {title_kind} - {constructor_name}",
-        xaxis_title="Activos",
-        yaxis_title="Activos",
+        title=f"{title_kind} Heatmap - {constructor_name}",
+        xaxis_title="Assets",
+        yaxis_title="Assets",
         xaxis_showgrid=False,
         yaxis_showgrid=False,
         width=900,
@@ -114,7 +98,6 @@ def corr_heatmap_portfolio(
         paper_bgcolor="white",
     )
 
-    # Save output.
     safe_constructor = str(constructor_name).replace(" ", "_").replace("/", "_")
     suffix = "corr" if kind == "correlation" else "cov"
     plots_dir = Path(getattr(portfolio, "plots_dir", Path.cwd() / "outputs" / "plots"))
@@ -123,5 +106,20 @@ def corr_heatmap_portfolio(
     out_path = plots_dir / f"heatmap_{suffix}_{safe_constructor}.html"
     fig.write_html(str(out_path))
 
-    print(f"Heatmap de {title_kind} guardado en:\n{out_path}")
+    print(f"Saved {title_kind.lower()} heatmap to:\n{out_path}")
     fig.show()
+
+
+def corr_heatmap_portfolio(
+    portfolio: "PortfolioUniverse",
+    kind: Literal["correlation", "covariance"] = "correlation",
+    round_decimals: int = 2,
+) -> None:
+    """
+    Backward-compatible wrapper for the original helper name.
+    """
+
+    return plot_portfolio_heatmap(portfolio, kind=kind, round_decimals=round_decimals)
+
+
+__all__ = ["plot_portfolio_heatmap", "corr_heatmap_portfolio"]

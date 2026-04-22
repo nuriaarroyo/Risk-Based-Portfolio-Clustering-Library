@@ -58,8 +58,8 @@ class HRPStyle:
                 self.distance_name = distance
             except KeyError:
                 raise ValueError(
-                    f"Distancia desconocida: {distance}. "
-                    f"Opciones validas: {list(DISTANCE_REGISTRY.keys())}"
+                    f"Unknown distance: {distance}. "
+                    f"Valid options: {list(DISTANCE_REGISTRY.keys())}"
                 )
         elif callable(distance):
             self.distance_func = distance
@@ -74,7 +74,7 @@ class HRPStyle:
                 self.clustering_func = hierarchical_clusters
                 self.clustering_name = "hierarchical"
             else:
-                raise ValueError(f"Clustering desconocido: {clustering}")
+                raise ValueError(f"Unknown clustering method: {clustering}")
         elif callable(clustering):
             self.clustering_func = clustering
             self.clustering_name = getattr(clustering, "__name__", "custom_clustering")

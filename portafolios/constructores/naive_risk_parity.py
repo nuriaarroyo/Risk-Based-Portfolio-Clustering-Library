@@ -68,7 +68,7 @@ class NaiveRiskParity(BaseConstructor):
             meta: dictionary with procedure metadata
         """
         if asset_returns is None or asset_returns.empty:
-            raise ValueError("asset_returns no puede ser None ni vacio.")
+            raise ValueError("asset_returns cannot be None or empty.")
 
         # 1) Per-asset volatilities.
         #    You can change ddof=1 or use .std() directly if preferred.

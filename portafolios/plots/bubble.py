@@ -11,112 +11,105 @@ if TYPE_CHECKING:
     from ..core.portafolio import PortfolioUniverse
 
 
-def bubbleplot_portfolio(
+def plot_portfolio_bubble(
     portfolio: "PortfolioUniverse",
-    pesos: Optional[Union[Sequence[float], pd.Series]] = None,
+    weights: Optional[Union[Sequence[float], pd.Series]] = None,
     min_weight: float = 0.0,
 ) -> None:
     """
-    Plotly bubble chart of expected return vs volatility by asset.
+    Plot a bubble chart of expected return versus volatility by asset.
 
     Uses:
-    - `portfolio.asset_returns` (daily simple returns)
-    - `portfolio.tickers`
-    - `portfolio.weights`
+    - `portfolio.asset_returns` for daily simple returns
+    - `portfolio.weights` as the default weights
     - `portfolio.info["constructor_display_name"]` for the title
 
-    Bubble size is proportional to portfolio weight.
+    Bubble size is proportional to the portfolio weight.
     """
 
-    # Base validation.
     if portfolio.asset_returns is None:
-        print("Llama primero a preparar_datos().")
+        print("No asset returns are available. Run the data preparation step first.")
         return
 
     tickers = list(portfolio.asset_returns.columns)
-    if len(tickers) == 0:
-        print("No hay tickers en asset_returns.")
+    if not tickers:
+        print("No tickers are available in asset_returns.")
         return
 
-    # Per-asset expected return and volatility.
-    rets = portfolio.asset_returns.dropna()
-    if rets.empty:
-        print("No hay retornos para ER/VOL.")
+    returns = portfolio.asset_returns.dropna()
+    if returns.empty:
+        print("No return history is available to compute expected return and volatility.")
         return
 
-    er = rets.mean()
-    vol = rets.std()
+    expected_return = returns.mean()
+    volatility = returns.std()
 
-    # Get and align weights.
-    if pesos is None:
+    if weights is None:
         if portfolio.weights is None:
-            print("Llama a construir() antes o pasa pesos explicitos.")
+            print("Run the portfolio construction step first or pass explicit `weights`.")
             return
 
         if isinstance(portfolio.weights, pd.Series):
-            w = portfolio.weights.reindex(tickers).fillna(0.0).astype(float)
+            aligned_weights = portfolio.weights.reindex(tickers).fillna(0.0).astype(float)
         else:
-            arr = np.asarray(portfolio.weights, dtype=float)
-            if len(arr) != len(tickers):
-                raise ValueError("El tamano de weights no coincide con los activos.")
-            w = pd.Series(arr, index=tickers)
-
-    elif isinstance(pesos, pd.Series):
-        w = pesos.reindex(tickers).fillna(0.0).astype(float)
-
+            aligned_array = np.asarray(portfolio.weights, dtype=float)
+            if len(aligned_array) != len(tickers):
+                raise ValueError("Weight length does not match the number of assets.")
+            aligned_weights = pd.Series(aligned_array, index=tickers)
+    elif isinstance(weights, pd.Series):
+        aligned_weights = weights.reindex(tickers).fillna(0.0).astype(float)
     else:
-        arr = np.asarray(pesos, dtype=float)
-        if len(arr) != len(tickers):
-            raise ValueError("El tamano de pesos no coincide con los activos.")
-        w = pd.Series(arr, index=tickers)
+        aligned_array = np.asarray(weights, dtype=float)
+        if len(aligned_array) != len(tickers):
+            raise ValueError("Weight length does not match the number of assets.")
+        aligned_weights = pd.Series(aligned_array, index=tickers)
 
-    # Clean and normalize.
-    w[w < 0] = np.maximum(w[w < 0], -1e-12)
-    ssum = w.sum()
-    if not np.isclose(ssum, 1.0, atol=1e-8):
-        w = w / ssum
+    aligned_weights[aligned_weights < 0] = np.maximum(aligned_weights[aligned_weights < 0], -1e-12)
+    weight_sum = float(aligned_weights.sum())
+    if weight_sum == 0:
+        print("Weights sum to zero; there is nothing to plot.")
+        return
+    if not np.isclose(weight_sum, 1.0, atol=1e-8):
+        aligned_weights = aligned_weights / weight_sum
 
-    # Filter by minimum weight.
-    mask = w > min_weight
+    mask = aligned_weights > min_weight
     if not mask.any():
-        print(f"Todos los pesos <= {min_weight:.4f}. Nada que graficar.")
+        print(f"All weights are <= {min_weight:.4f}; there is nothing to plot.")
         return
 
-    w_plot = w[mask].values
-    er_plot = er[mask].values
-    vol_plot = vol[mask].values
-    labels = w.index[mask].tolist()
+    plot_weights = aligned_weights[mask].values
+    plot_returns = expected_return[mask].values
+    plot_volatility = volatility[mask].values
+    labels = aligned_weights.index[mask].tolist()
 
-    # Bubble sizes.
-    n_pts = len(w_plot)
-    base = 1800 if n_pts <= 25 else (1400 if n_pts <= 60 else 1000)
-    sizes = np.maximum(8, np.sqrt(w_plot) * base)
+    n_points = len(plot_weights)
+    base_scale = 1800 if n_points <= 25 else (1400 if n_points <= 60 else 1000)
+    bubble_sizes = np.maximum(8, np.sqrt(plot_weights) * base_scale)
 
-    # Plotly figure.
     fig = go.Figure()
     fig.add_trace(
         go.Scatter(
-            x=er_plot,
-            y=vol_plot,
-            mode="markers+text" if n_pts <= 25 else "markers",
-            marker=dict(size=sizes, opacity=0.7, line=dict(color="black", width=1)),
-            text=labels if n_pts <= 25 else None,
+            x=plot_returns,
+            y=plot_volatility,
+            mode="markers+text" if n_points <= 25 else "markers",
+            marker=dict(size=bubble_sizes, opacity=0.7, line=dict(color="black", width=1)),
+            text=labels if n_points <= 25 else None,
             textposition="middle center",
-            hovertemplate="<b>%{text}</b><br>ER: %{x:.4f}<br>VOL: %{y:.4f}<br>Peso: %{customdata:.2%}<extra></extra>",
-            customdata=w_plot,
-            name="Activos",
+            hovertemplate="<b>%{text}</b><br>ER: %{x:.4f}<br>VOL: %{y:.4f}<br>Weight: %{customdata:.2%}<extra></extra>",
+            customdata=plot_weights,
+            name="Assets",
         )
     )
 
-    constructor = portfolio.info.get(
+    constructor_name = portfolio.info.get(
         "constructor_display_name",
         portfolio.info.get("constructor", "Portfolio"),
     )
 
     fig.update_layout(
-        title=f"Bubble Plot: ER vs VOL - {constructor}",
-        xaxis_title="Expected Return (diario)",
-        yaxis_title="Volatility (diaria)",
+        title=f"Bubble Plot: Expected Return vs Volatility - {constructor_name}",
+        xaxis_title="Expected Return (daily)",
+        yaxis_title="Volatility (daily)",
         width=1200,
         height=900,
         showlegend=False,
@@ -124,12 +117,26 @@ def bubbleplot_portfolio(
         paper_bgcolor="white",
     )
 
-    # Save output.
-    safe = str(constructor).replace(" ", "_").replace("/", "_")
+    safe_name = str(constructor_name).replace(" ", "_").replace("/", "_")
     plots_dir = Path(getattr(portfolio, "plots_dir", Path.cwd() / "outputs" / "plots"))
     plots_dir.mkdir(parents=True, exist_ok=True)
-    out_path = plots_dir / f"bubble_plot_{safe}.html"
+    out_path = plots_dir / f"bubble_plot_{safe_name}.html"
     fig.write_html(str(out_path))
 
-    print(f"Bubble plot guardado en:\n{out_path}")
+    print(f"Saved bubble plot to:\n{out_path}")
     fig.show()
+
+
+def bubbleplot_portfolio(
+    portfolio: "PortfolioUniverse",
+    pesos: Optional[Union[Sequence[float], pd.Series]] = None,
+    min_weight: float = 0.0,
+) -> None:
+    """
+    Backward-compatible wrapper for the original Spanish helper name.
+    """
+
+    return plot_portfolio_bubble(portfolio, weights=pesos, min_weight=min_weight)
+
+
+__all__ = ["plot_portfolio_bubble", "bubbleplot_portfolio"]

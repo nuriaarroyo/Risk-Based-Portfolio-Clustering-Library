@@ -53,14 +53,14 @@ class HRPRecursive:
                 self.distance_name = distance
             except KeyError:
                 raise ValueError(
-                    f"Distancia desconocida: {distance}. "
-                    f"Opciones validas: {list(DISTANCE_REGISTRY.keys())}"
+                    f"Unknown distance: {distance}. "
+                    f"Valid options: {list(DISTANCE_REGISTRY.keys())}"
                 )
         elif callable(distance):
             self.distance_func = distance
             self.distance_name = getattr(distance, "__name__", "custom_distance")
         else:
-            raise TypeError("distance debe ser string o funcion.")
+            raise TypeError("distance must be a string or a callable.")
 
         # Resolve clustering function.
         if isinstance(clustering, str):
@@ -68,12 +68,12 @@ class HRPRecursive:
                 self.clustering_func = hierarchical_clusters
                 self.clustering_name = "hierarchical"
             else:
-                raise ValueError(f"Clustering desconocido: {clustering}")
+                raise ValueError(f"Unknown clustering method: {clustering}")
         elif callable(clustering):
             self.clustering_func = clustering
             self.clustering_name = getattr(clustering, "__name__", "custom_clustering")
         else:
-            raise TypeError("clustering debe ser string o funcion.")
+            raise TypeError("clustering must be a string or a callable.")
 
     # Public API.
     def optimizar(
@@ -87,7 +87,7 @@ class HRPRecursive:
             meta: metadata dictionary
         """
         if asset_returns is None or asset_returns.empty:
-            raise ValueError("asset_returns no puede ser None ni vacio.")
+            raise ValueError("asset_returns cannot be None or empty.")
 
         # Keep the last asset-return matrix in case plots need it later.
         self.last_asset_returns = asset_returns.copy()
@@ -170,7 +170,7 @@ class HRPRecursive:
         clusters = self.clustering_func(dist, n_clusters=2)
         if len(clusters) != 2:
             # Guard against an unexpected clustering result.
-            raise RuntimeError(f"Se esperaban 2 clusters, se obtuvieron {len(clusters)}")
+            raise RuntimeError(f"Expected 2 clusters, received {len(clusters)}.")
 
         left_assets, right_assets = clusters[0], clusters[1]
 

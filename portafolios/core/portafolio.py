@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import shutil
 from dataclasses import replace
 from pathlib import Path
 from typing import Any, Callable, Iterable, Optional
 
+import numpy as np
 import pandas as pd
 
 from ..data.base import StandardizedData
@@ -88,14 +90,14 @@ class PortfolioUniverse:
 
     def preparar_datos(self) -> "PortfolioUniverse":
         if self.loader is None:
-            raise ValueError("Debes proporcionar un loader o un objeto de datos estandarizado.")
+            raise ValueError("You must provide a loader or a standardized data object.")
 
         data = self._resolve_market_data()
 
         if not isinstance(data.prices.index, pd.DatetimeIndex):
-            raise TypeError("El loader debe devolver precios con DatetimeIndex.")
+            raise TypeError("The loader must return prices indexed by a DatetimeIndex.")
         if data.prices.empty:
-            raise ValueError("El loader devolvio un DataFrame vacio.")
+            raise ValueError("The loader returned an empty DataFrame.")
 
         self.market_data = data
         self.prices = data.prices.sort_index()
@@ -185,7 +187,7 @@ class PortfolioUniverse:
         dropna: bool = True,
     ) -> pd.DataFrame:
         if self.returns is None:
-            raise RuntimeError("Primero prepara los datos para tener retornos disponibles.")
+            raise RuntimeError("Prepare the market data before requesting returns.")
 
         window = self.returns.copy()
         if start is not None:
@@ -195,7 +197,7 @@ class PortfolioUniverse:
         if dropna:
             window = window.dropna(axis=0, how="any")
         if window.empty:
-            raise ValueError("No hay retornos disponibles en la ventana solicitada.")
+            raise ValueError("No returns are available inside the requested window.")
         return window
 
     def _resolve_metric_context(
@@ -204,7 +206,7 @@ class PortfolioUniverse:
         construction_name: str | None = None,
     ) -> tuple[pd.Series, pd.DataFrame, pd.Series, pd.DataFrame]:
         if self.asset_returns is None:
-            raise RuntimeError("Primero prepara los datos para tener retornos disponibles.")
+            raise RuntimeError("Prepare the market data before requesting metrics.")
 
         construction = self.get_construction(construction_name or self.active_label) if (construction_name or self.active_label) else None
 
@@ -218,12 +220,26 @@ class PortfolioUniverse:
             returns_frame = self.asset_returns
             weights = self.weights.copy()
         else:
-            raise RuntimeError("Primero construye el portafolio para tener weights.")
+            raise RuntimeError("Build a portfolio before requesting weight-based metrics.")
 
         weights = weights.reindex(returns_frame.columns).fillna(0.0)
         mean_returns = returns_frame.mean()
         covariance = returns_frame.cov()
         return weights, returns_frame, mean_returns, covariance
+
+    def _resolve_path_metric_series(
+        self,
+        *,
+        construction_name: str | None = None,
+    ) -> pd.Series:
+        target_name = construction_name or self.active_label
+        construction = self.get_construction(target_name) if target_name is not None else None
+
+        if construction is not None and construction.backtest_result is not None:
+            return construction.backtest_result.portfolio_returns.copy()
+
+        weights, returns_frame, _, _ = self._resolve_metric_context(construction_name=construction_name)
+        return pm.portfolio_return_series(returns_frame, weights)
 
     def set_construction_window(
         self,
@@ -294,6 +310,7 @@ class PortfolioUniverse:
         with (construction_dir / "summary.json").open("w", encoding="utf-8") as f:
             json.dump(summary_payload, f, indent=2, default=str)
 
+        self._save_method_specific_construction_artifacts(construction, construction_dir)
         return construction_dir
 
     def save_all_constructions(self) -> dict[str, Path]:
@@ -414,11 +431,11 @@ class PortfolioUniverse:
                 metadata={"source": "callable_dataframe", "frequency": self.freq},
             )
 
-        raise TypeError("El loader debe devolver StandardizedData o un DataFrame de precios.")
+        raise TypeError("The loader must return StandardizedData or a price DataFrame.")
 
     def construir(self, constructor, label: str | None = None, set_active: bool = True, **kwargs) -> "PortfolioUniverse":
         if self.asset_returns is None:
-            raise RuntimeError("Llama primero a preparar_datos().")
+            raise RuntimeError("Run preparar_datos() before building constructions.")
 
         result = self._build_construction_result(constructor=constructor, label=label, **kwargs)
         self.add_construction(result, set_active=set_active)
@@ -498,7 +515,7 @@ class PortfolioUniverse:
             return result
 
         if not hasattr(constructor, "optimizar"):
-            raise TypeError("El constructor debe implementar `build(...)` o `optimizar(...)`.")
+            raise TypeError("The constructor must implement `build(...)` or `optimizar(...)`.")
 
         weights, meta = constructor.optimizar(construction_returns, **kwargs)
         method_id = getattr(constructor, "method_id", type(constructor).__name__)
@@ -533,7 +550,7 @@ class PortfolioUniverse:
     def add_construction(self, result: ConstructionResult, *, set_active: bool = True) -> None:
         normalized = self._normalize_construction_result(result)
         if normalized.name in self.constructions:
-            raise ValueError(f"Ya existe una construccion con el nombre '{normalized.name}'.")
+            raise ValueError(f"A construction named '{normalized.name}' already exists.")
 
         self.constructions[normalized.name] = normalized
 
@@ -552,7 +569,7 @@ class PortfolioUniverse:
         try:
             return self.constructions[name]
         except KeyError as exc:
-            raise KeyError(f"No existe una construccion llamada '{name}'.") from exc
+            raise KeyError(f"No construction named '{name}' exists.") from exc
 
     def list_constructions(self) -> list[str]:
         return list(self.constructions.keys())
@@ -636,6 +653,149 @@ class PortfolioUniverse:
             label = f"{base}_{i}"
         return label
 
+    def _save_method_specific_construction_artifacts(
+        self,
+        construction: ConstructionResult,
+        construction_dir: Path,
+    ) -> None:
+        diagnostics_root = construction_dir / "diagnostics"
+        shutil.rmtree(diagnostics_root, ignore_errors=True)
+
+        if construction.hrp_diagnostics is not None:
+            self._save_hrp_diagnostics(construction, diagnostics_root / "hrp")
+
+        if self._is_markowitz_construction(construction):
+            self._save_markowitz_diagnostics(construction, diagnostics_root / "markowitz")
+
+    def _save_hrp_diagnostics(
+        self,
+        construction: ConstructionResult,
+        diagnostics_dir: Path,
+    ) -> None:
+        diagnostics = construction.hrp_diagnostics
+        if diagnostics is None:
+            return
+
+        diagnostics_dir.mkdir(parents=True, exist_ok=True)
+
+        summary_payload = {
+            "construction_name": construction.name,
+            "display_name": construction.display_name,
+            "distance_name": diagnostics.distance_name,
+            "clustering_name": diagnostics.clustering_name,
+            "n_clusters": len(diagnostics.clusters),
+            "clusters": diagnostics.clusters,
+        }
+        with (diagnostics_dir / "summary.json").open("w", encoding="utf-8") as handle:
+            json.dump(summary_payload, handle, indent=2, default=str)
+
+        diagnostics.distance_matrix.to_csv(diagnostics_dir / "distance_matrix.csv")
+        diagnostics.final_weights.to_csv(diagnostics_dir / "final_weights.csv", header=["weight"])
+
+        if not diagnostics.cluster_returns.empty:
+            diagnostics.cluster_returns.to_csv(diagnostics_dir / "cluster_returns.csv")
+
+        if not diagnostics.cluster_weights.empty:
+            diagnostics.cluster_weights.to_csv(diagnostics_dir / "cluster_weights.csv", header=["weight"])
+
+        local_weights_frame = pd.DataFrame(
+            {
+                cluster_name: cluster_weights
+                for cluster_name, cluster_weights in diagnostics.local_weights.items()
+            }
+        )
+        if not local_weights_frame.empty:
+            local_weights_frame.to_csv(diagnostics_dir / "local_weights.csv")
+
+        if diagnostics.cluster_labels is not None:
+            diagnostics.cluster_labels.rename("cluster").to_csv(diagnostics_dir / "cluster_labels.csv")
+
+        if diagnostics.linkage_matrix is not None:
+            pd.DataFrame(
+                diagnostics.linkage_matrix,
+                columns=["left", "right", "distance", "count"],
+            ).to_csv(diagnostics_dir / "linkage_matrix.csv", index=False)
+
+        with (diagnostics_dir / "cluster_assets.json").open("w", encoding="utf-8") as handle:
+            json.dump(diagnostics.cluster_assets, handle, indent=2, default=str)
+
+        with (diagnostics_dir / "inner_metadata_by_cluster.json").open("w", encoding="utf-8") as handle:
+            json.dump(diagnostics.inner_metadata_by_cluster, handle, indent=2, default=str)
+
+        with (diagnostics_dir / "outer_metadata.json").open("w", encoding="utf-8") as handle:
+            json.dump(diagnostics.outer_metadata, handle, indent=2, default=str)
+
+    def _save_markowitz_diagnostics(
+        self,
+        construction: ConstructionResult,
+        diagnostics_dir: Path,
+    ) -> None:
+        diagnostics_dir.mkdir(parents=True, exist_ok=True)
+
+        returns_frame = self.get_returns_window(
+            construction.construction_start,
+            construction.construction_end,
+        ).dropna(axis=0, how="any")
+        returns_frame = returns_frame.loc[:, construction.weights.index]
+
+        expected_returns = returns_frame.mean()
+        covariance = returns_frame.cov()
+        portfolio_weights = construction.weights.reindex(expected_returns.index).fillna(0.0).astype(float)
+        covariance_values = covariance.to_numpy(dtype=float)
+        weight_values = portfolio_weights.to_numpy(dtype=float)
+
+        optimizer_meta = {
+            key.removeprefix("meta_"): value
+            for key, value in (construction.metrics_insample or {}).items()
+            if key.startswith("meta_")
+        }
+        optimizer_meta.setdefault("allow_short", bool(construction.params.get("allow_short", False)))
+        optimizer_meta.setdefault("ret_kind_used", construction.params.get("ret_kind", "simple"))
+
+        with (diagnostics_dir / "optimizer_summary.json").open("w", encoding="utf-8") as handle:
+            json.dump(optimizer_meta, handle, indent=2, default=str)
+
+        expected_returns.rename("expected_return").to_csv(diagnostics_dir / "expected_returns.csv")
+        covariance.to_csv(diagnostics_dir / "covariance.csv")
+
+        asset_moments = pd.DataFrame(
+            {
+                "expected_return": expected_returns,
+                "volatility": pd.Series(
+                    np.sqrt(np.diag(covariance_values)),
+                    index=expected_returns.index,
+                ),
+            }
+        )
+        asset_moments.to_csv(diagnostics_dir / "asset_moments.csv")
+
+        portfolio_point = {
+            "construction_name": construction.name,
+            "expected_return": float(weight_values @ expected_returns.to_numpy(dtype=float)),
+            "volatility": float(np.sqrt(max(float(weight_values @ covariance_values @ weight_values), 0.0))),
+            "allow_short": bool(optimizer_meta.get("allow_short", False)),
+        }
+        with (diagnostics_dir / "portfolio_point.json").open("w", encoding="utf-8") as handle:
+            json.dump(portfolio_point, handle, indent=2, default=str)
+
+        from ..plots.visualizer import PortfolioVisualizer
+
+        frontier = PortfolioVisualizer(self)._compute_efficient_frontier(
+            expected_returns=expected_returns,
+            covariance=covariance,
+            allow_short=bool(optimizer_meta.get("allow_short", False)),
+            n_points=30,
+        )
+        frontier.to_csv(diagnostics_dir / "efficient_frontier_points.csv", index=False)
+
+    def _is_markowitz_construction(self, construction: ConstructionResult) -> bool:
+        values = (
+            str(construction.method_id).lower(),
+            str(construction.name).lower(),
+            str(construction.display_name).lower(),
+        )
+        return any("markowitz" in value for value in values)
+
     def kpi(self, nombre: str, **kwargs):
         ann = kwargs.get("ann_factor", None)
         rf = kwargs.get("rf_per_period", 0.0)
@@ -664,45 +824,40 @@ class PortfolioUniverse:
                 as_fraction=kwargs.get("as_fraction", True),
             )
 
+        portfolio_returns = self._resolve_path_metric_series(construction_name=construction_name)
         if nombre in ("sharpe",):
-            return pm.sharpe(returns_frame, weights, rf_per_period=rf, ann_factor=ann)
+            return pm.sharpe_from_series(portfolio_returns, rf_per_period=rf, ann_factor=ann)
         if nombre in ("sortino",):
-            return pm.sortino(
-                returns_frame,
-                weights,
+            return pm.sortino_from_series(
+                portfolio_returns,
                 mar_per_period=kwargs.get("mar_per_period", 0.0),
                 ann_factor=ann,
             )
         if nombre in ("mdd", "max_drawdown"):
-            return pm.max_drawdown(returns_frame, weights)
-        if nombre in ("calmar",):
-            return pm.calmar_from_moments(
-                mean_returns,
-                covariance,
-                weights,
-                ann_factor=ann,
-                returns_for_mdd=returns_frame,
-            )
+            return pm.max_drawdown_from_series(portfolio_returns)
         if nombre in ("var", "var_gauss"):
-            return pm.var_gaussian(returns_frame, weights, alpha=kwargs.get("alpha", 0.95), ann_factor=ann)
+            return pm.var_gaussian_from_series(
+                portfolio_returns,
+                alpha=kwargs.get("alpha", 0.95),
+                ann_factor=ann,
+            )
         if nombre in ("cvar", "cvar_gauss", "es"):
-            return pm.cvar_gaussian(
-                returns_frame,
-                weights,
+            return pm.cvar_gaussian_from_series(
+                portfolio_returns,
                 alpha=kwargs.get("alpha", 0.95),
                 ann_factor=ann,
             )
         if nombre in ("te", "tracking_error"):
             bench = kwargs["benchmark"]
-            return pm.tracking_error(returns_frame, weights, bench, ann_factor=ann)
+            return pm.tracking_error_from_series(portfolio_returns, bench, ann_factor=ann)
         if nombre in ("alpha_beta", "ab"):
             bench = kwargs["benchmark"]
-            return pm.alpha_beta(returns_frame, weights, bench, rf_per_period=rf, ann_factor=ann)
+            return pm.alpha_beta_from_series(portfolio_returns, bench, rf_per_period=rf, ann_factor=ann)
         if nombre in ("ir", "information_ratio"):
             bench = kwargs["benchmark"]
-            return pm.information_ratio(returns_frame, weights, bench, ann_factor=ann)
+            return pm.information_ratio_from_series(portfolio_returns, bench, ann_factor=ann)
 
-        raise ValueError(f"KPI no reconocido: {nombre}")
+        raise ValueError(f"Unrecognized KPI: {nombre}")
 
     def get_metric(self, metric_name: str, **kwargs):
         return self.kpi(metric_name, **kwargs)

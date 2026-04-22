@@ -38,6 +38,10 @@ This document is the shortest path through the repository for a thesis reader.
 
 ## Generated Run Artifacts
 
-- The library writes per-run artifacts such as `data/`, `constructions/`, `backtests/`, `monte_carlo/`, and `plots/`.
+- The full thesis experiment writes local run artifacts under `outputs/final_experimental_setup/framework_runs/`.
+- Each run stores `data/`, `constructions/`, `backtests/`, `monte_carlo/`, and `plots/`.
 - Within each run, HTML figures live under `plots/` while saved numeric outputs remain in `constructions/`, `backtests/`, and `monte_carlo/`.
+- Method-specific construction diagnostics are saved under `constructions/<method>/diagnostics/`.
+- HRP methods can include clustering artifacts such as distance matrices and linkage data.
+- Markowitz can include optimizer artifacts such as expected returns, covariance, and efficient frontier points.
 - These large generated outputs are intentionally treated as reproducible local artifacts rather than the main tracked thesis surface.

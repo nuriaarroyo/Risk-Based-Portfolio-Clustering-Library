@@ -48,13 +48,13 @@ def yfinance_loader(
     """
     ticker_list = _normalize_tickers(tickers)
     if not ticker_list:
-        raise ValueError("Debes proporcionar al menos un ticker para descargar desde Yahoo Finance.")
+        raise ValueError("You must provide at least one ticker to download from Yahoo Finance.")
     if batch_size <= 0:
-        raise ValueError("`batch_size` debe ser un entero positivo.")
+        raise ValueError("`batch_size` must be a positive integer.")
     if max_retries < 1:
-        raise ValueError("`max_retries` debe ser al menos 1.")
+        raise ValueError("`max_retries` must be at least 1.")
     if retry_wait < 0:
-        raise ValueError("`retry_wait` no puede ser negativo.")
+        raise ValueError("`retry_wait` cannot be negative.")
 
     resolved_save_path = _normalize_path(save_path) if save_path is not None else None
     resolved_catalog_path = _resolve_catalog_path(
@@ -105,7 +105,7 @@ def yfinance_loader(
         import yfinance.cache as yfc
     except ImportError as exc:
         raise ImportError(
-            "No se pudo importar `yfinance`. Instalala para usar `yfinance_loader`."
+            "Could not import `yfinance`. Install it before using `yfinance_loader`."
         ) from exc
 
     resolved_cache_dir = _resolve_cache_dir(cache_dir)
@@ -171,11 +171,11 @@ def yfinance_loader(
                 download_attempted=True,
             )
             return prices
-        details = " | ".join(batch_errors) if batch_errors else "sin detalle adicional"
+        details = " | ".join(batch_errors) if batch_errors else "no additional detail"
         raise ValueError(
-            "Yahoo Finance no devolvio datos para los tickers solicitados. "
-            f"Posibles causas: bloqueo de red, rate limit temporal, tickers invalidos o rango sin datos. "
-            f"Detalles: {details}"
+            "Yahoo Finance did not return data for the requested tickers. "
+            f"Possible causes: network blocking, temporary rate limits, invalid tickers, or a date range without data. "
+            f"Details: {details}"
         )
 
     combined = pd.concat(frames, axis=1)
@@ -183,7 +183,7 @@ def yfinance_loader(
 
     if save_download:
         if resolved_save_path is None:
-            raise ValueError("Si `save_download=True`, debes proporcionar `save_path`.")
+            raise ValueError("If `save_download=True`, you must provide `save_path`.")
         resolved_save_path.parent.mkdir(parents=True, exist_ok=True)
         combined.to_csv(resolved_save_path)
 
@@ -253,7 +253,7 @@ def _ensure_multiindex_columns(df: pd.DataFrame, batch: Sequence[str]) -> pd.Dat
         return df
 
     if len(batch) != 1:
-        raise ValueError("Respuesta inesperada de Yahoo Finance: columnas simples para varios tickers.")
+        raise ValueError("Unexpected Yahoo Finance response: flat columns were returned for multiple tickers.")
 
     ticker = batch[0]
     out = df.copy()
@@ -291,9 +291,9 @@ def _load_saved_prices(
     max_missing_ratio: float,
 ) -> pd.DataFrame:
     if save_path is None:
-        raise ValueError("Debes proporcionar `save_path` para usar datos guardados.")
+        raise ValueError("You must provide `save_path` to use saved data.")
     if not save_path.exists():
-        raise FileNotFoundError(f"No existe el archivo guardado: {save_path}")
+        raise FileNotFoundError(f"The saved file does not exist: {save_path}")
 
     return local_loader(
         path=save_path,

@@ -120,12 +120,12 @@ class Markowitz(BaseConstructor):
         **kwargs,
     ) -> tuple[pd.Series, dict[str, Any]]:
         if returns is None or returns.empty:
-            raise ValueError("El DataFrame de retornos esta vacio o es None.")
+            raise ValueError("The returns DataFrame is empty or None.")
 
         # Returns coming from PortfolioUniverse are simple returns.
         rets = returns.dropna(axis=0, how="any")
         if rets.empty:
-            raise ValueError("No hay filas sin NaN en los retornos.")
+            raise ValueError("There are no rows without NaN values in the returns data.")
 
         # Choose which return type to use in the optimization.
         # ret_kind = "log"    -> use log(1 + simple_return)
@@ -135,7 +135,7 @@ class Markowitz(BaseConstructor):
         elif ret_kind in ("simple", "normal", "pct"):
             rets_used = rets
         else:
-            raise ValueError("ret_kind debe ser 'log' o 'simple'.")
+            raise ValueError("ret_kind must be 'log' or 'simple'.")
 
         tickers = list(rets_used.columns)
         n = len(tickers)
@@ -149,7 +149,7 @@ class Markowitz(BaseConstructor):
         if bounds is not None:
             bounds_tuple = tuple(bounds)
             if len(bounds_tuple) != n:
-                raise ValueError("bounds debe tener longitud = numero de activos.")
+                raise ValueError("bounds must have the same length as the number of assets.")
         else:
             if allow_short:
                 bounds_tuple = tuple((-1.0, 1.0) for _ in range(n))

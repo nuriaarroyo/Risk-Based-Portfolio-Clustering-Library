@@ -11,9 +11,9 @@ if TYPE_CHECKING:
     from ..core.portafolio import PortfolioUniverse
 
 
-def barras_portfolio(
+def plot_portfolio_bar(
     portfolio: "PortfolioUniverse",
-    pesos: Optional[Union[Sequence[float], pd.Series]] = None,
+    weights: Optional[Union[Sequence[float], pd.Series]] = None,
     min_weight: float = 0.0,
 ) -> None:
     """
@@ -24,76 +24,70 @@ def barras_portfolio(
     - `portfolio.weights` as the default weights
     - `portfolio.info["constructor_display_name"]` for the title, when available
 
-    - If `pesos` is None, uses `portfolio.weights`.
-    - Aligns to `asset_returns.columns`; missing Series entries are filled with 0.
-    - Normalizes if the weights do not sum to 1.
-    - Can filter very small weights with `min_weight`.
-    - Saves HTML to the configured universe output directory or `./outputs/plots/`.
+    If `weights` is None, uses `portfolio.weights`.
+    Aligns to `asset_returns.columns`; missing Series entries are filled with 0.
+    Normalizes if the weights do not sum to 1.
+    Can filter very small weights with `min_weight`.
+    Saves HTML to the configured universe output directory or `./outputs/plots/`.
     """
 
-    # Asset universe.
     if portfolio.asset_returns is None:
-        print("No hay retornos de activos. Llama primero a preparar_datos().")
+        print("No asset returns are available. Run the data preparation step first.")
         return
 
     tickers = list(portfolio.asset_returns.columns)
     if not tickers:
-        print("No hay tickers en asset_returns.")
+        print("No tickers are available in asset_returns.")
         return
 
-    # Get and align weights.
-    if pesos is None:
+    if weights is None:
         if getattr(portfolio, "weights", None) is None:
-            print("No hay pesos en el objeto. Llama a construir(...) o pasa `pesos`.")
+            print("No weights are available on the portfolio. Run the portfolio construction step first or pass `weights`.")
             return
 
         if isinstance(portfolio.weights, pd.Series):
-            w = portfolio.weights.reindex(tickers).fillna(0.0).values.astype(float)
+            aligned_weights = portfolio.weights.reindex(tickers).fillna(0.0).values.astype(float)
         else:
-            w = np.asarray(portfolio.weights, dtype=float)
-            if len(w) != len(tickers):
+            aligned_weights = np.asarray(portfolio.weights, dtype=float)
+            if len(aligned_weights) != len(tickers):
                 raise ValueError(
-                    f"Length of weights ({len(w)}) no coincide con numero de activos ({len(tickers)})."
+                    f"Weight length ({len(aligned_weights)}) does not match the number of assets ({len(tickers)})."
                 )
-    elif isinstance(pesos, pd.Series):
-        s = pesos.reindex(tickers).fillna(0.0)
-        w = s.values.astype(float)
+    elif isinstance(weights, pd.Series):
+        aligned_weights = weights.reindex(tickers).fillna(0.0).values.astype(float)
     else:
-        w = np.asarray(pesos, dtype=float)
-        if len(w) != len(tickers):
+        aligned_weights = np.asarray(weights, dtype=float)
+        if len(aligned_weights) != len(tickers):
             raise ValueError(
-                f"Length of weights ({len(w)}) no coincide con numero de activos ({len(tickers)})."
+                f"Weight length ({len(aligned_weights)}) does not match the number of assets ({len(tickers)})."
             )
 
-    # Clean and normalize.
-    if not np.isfinite(w).all():
-        raise ValueError("Los pesos contienen NaN o Inf.")
+    if not np.isfinite(aligned_weights).all():
+        raise ValueError("Weights contain NaN or infinite values.")
 
-    w[w < 0] = np.maximum(w[w < 0], -1e-12)
+    aligned_weights[aligned_weights < 0] = np.maximum(aligned_weights[aligned_weights < 0], -1e-12)
 
-    ssum = w.sum()
-    if ssum == 0:
-        print("Suma de pesos = 0; nada que graficar.")
+    weight_sum = aligned_weights.sum()
+    if weight_sum == 0:
+        print("Weights sum to zero; there is nothing to plot.")
         return
-    if not np.isclose(ssum, 1.0, atol=1e-8):
-        w = w / ssum
+    if not np.isclose(weight_sum, 1.0, atol=1e-8):
+        aligned_weights = aligned_weights / weight_sum
 
-    # Filter small weights.
-    mask = w > min_weight
-    w_plot = w[mask]
-    t_plot = [t for t, m in zip(tickers, mask) if m]
+    mask = aligned_weights > min_weight
+    plot_weights = aligned_weights[mask]
+    plot_tickers = [ticker for ticker, keep in zip(tickers, mask) if keep]
 
-    if len(w_plot) == 0:
-        print(f"Todos los pesos son <= {min_weight:.2%}; nada que graficar.")
+    if len(plot_weights) == 0:
+        print(f"All weights are <= {min_weight:.2%}; there is nothing to plot.")
         return
 
-    # Plot.
     fig = go.Figure(
         data=[
             go.Bar(
-                x=t_plot,
-                y=w_plot,
-                text=[f"{p:.1%}" for p in w_plot],
+                x=plot_tickers,
+                y=plot_weights,
+                text=[f"{weight:.1%}" for weight in plot_weights],
                 textposition="auto",
             )
         ]
@@ -105,9 +99,9 @@ def barras_portfolio(
     )
 
     fig.update_layout(
-        title=f"Distribucion de Pesos del {constructor_name}",
-        xaxis_title="Activos",
-        yaxis_title="Peso",
+        title=f"Portfolio Weight Distribution - {constructor_name}",
+        xaxis_title="Asset",
+        yaxis_title="Weight",
         width=1400,
         height=700,
         showlegend=False,
@@ -115,7 +109,6 @@ def barras_portfolio(
         paper_bgcolor="white",
     )
 
-    # Save and display.
     safe_name = (
         str(constructor_name)
         .replace(" ", "_")
@@ -128,9 +121,22 @@ def barras_portfolio(
     plots_dir = Path(getattr(portfolio, "plots_dir", Path.cwd() / "outputs" / "plots"))
     plots_dir.mkdir(parents=True, exist_ok=True)
 
-    out_path = plots_dir / f"portfolio_barras_{safe_name}.html"
+    out_path = plots_dir / f"portfolio_bar_{safe_name}.html"
     fig.write_html(str(out_path))
-    print(f"Grafica de barras guardada en: {out_path}")
-
-    # Show for notebook/browser workflows.
+    print(f"Saved bar chart to: {out_path}")
     fig.show()
+
+
+def barras_portfolio(
+    portfolio: "PortfolioUniverse",
+    pesos: Optional[Union[Sequence[float], pd.Series]] = None,
+    min_weight: float = 0.0,
+) -> None:
+    """
+    Backward-compatible wrapper for the original Spanish helper name.
+    """
+
+    return plot_portfolio_bar(portfolio, weights=pesos, min_weight=min_weight)
+
+
+__all__ = ["plot_portfolio_bar", "barras_portfolio"]

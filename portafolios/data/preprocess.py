@@ -38,7 +38,7 @@ def select_close_prices(
     Accepts plain or MultiIndex columns and returns close prices only.
     """
     if df.empty:
-        raise ValueError("El DataFrame de entrada esta vacio.")
+        raise ValueError("The input DataFrame is empty.")
 
     prices = df.copy()
     if not isinstance(prices.index, pd.DatetimeIndex):
@@ -56,7 +56,7 @@ def select_close_prices(
         requested = normalize_ticker_sequence(tickers)
         keep = [ticker for ticker in requested if ticker in prices.columns]
         if not keep:
-            raise ValueError("Ninguno de los tickers solicitados esta disponible en los datos.")
+            raise ValueError("None of the requested tickers are available in the data.")
         prices = prices[keep]
 
     if start:
@@ -65,7 +65,7 @@ def select_close_prices(
         prices = prices[prices.index <= pd.to_datetime(end)]
 
     if not 0.0 <= max_missing_ratio <= 1.0:
-        raise ValueError("`max_missing_ratio` debe estar entre 0 y 1.")
+        raise ValueError("`max_missing_ratio` must be between 0 and 1.")
 
     if not prices.empty:
         missing_ratio = prices.isna().mean(axis=0)
@@ -77,7 +77,7 @@ def select_close_prices(
 
     prices = prices.dropna(axis=1, how="all")
     if prices.empty:
-        raise ValueError("No quedaron precios disponibles tras filtrar y limpiar los datos.")
+        raise ValueError("No prices remained after filtering and cleaning the data.")
 
     if freq:
         prices = prices.asfreq(freq, method="pad")
@@ -93,7 +93,7 @@ def _extract_close_from_multiindex(df: pd.DataFrame, *, prefer_adj_close: bool) 
     if direct.empty:
         direct = _pick_columns(df, field_name=fallback_field)
     if direct.empty:
-        raise ValueError("No se encontraron columnas 'Adj Close' ni 'Close' en el DataFrame.")
+        raise ValueError("The DataFrame does not include 'Adj Close' or 'Close' columns.")
 
     return direct
 
