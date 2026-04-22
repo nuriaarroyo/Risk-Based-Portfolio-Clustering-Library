@@ -82,7 +82,7 @@ class DummyUniversePlots(DummyUniversePaths):
             display_name="HRP Style",
             weights=pd.Series({"AAPL": 0.5, "MSFT": 0.3, "JPM": 0.2}),
             selected_assets=["AAPL", "MSFT", "JPM"],
-            params={},
+            params={"allow_short": False},
             metrics_insample={},
             construction_start=pd.Timestamp("2024-01-02"),
             construction_end=pd.Timestamp("2024-01-05"),
@@ -102,6 +102,13 @@ class DummyUniversePlots(DummyUniversePaths):
                     cluster_weights=pd.Series(dtype=float),
                     local_weights={},
                     final_weights=pd.Series(dtype=float),
+                    linkage_matrix=np.array(
+                        [
+                            [0.0, 1.0, 0.2, 2.0],
+                            [2.0, 3.0, 0.4, 3.0],
+                        ]
+                    ),
+                    cluster_labels=pd.Series([1, 1, 2], index=["AAPL", "MSFT", "JPM"]),
                 )
             },
             backtest_result=BacktestResult(
@@ -117,6 +124,10 @@ class DummyUniversePlots(DummyUniversePaths):
                     index=pd.to_datetime(["2024-01-02", "2024-01-03", "2024-01-04", "2024-01-05"]),
                 ),
                 summary_metrics={},
+                drawdown_series=pd.Series(
+                    [0.0, -0.005, 0.0, 0.0],
+                    index=pd.to_datetime(["2024-01-02", "2024-01-03", "2024-01-04", "2024-01-05"]),
+                ),
             ),
             mc_result=MonteCarloResult(
                 construction_name="hrp_style",
@@ -223,22 +234,31 @@ def test_visualizer_diagnostic_plot_helpers_save_in_clean_locations() -> None:
         visualizer = PortfolioVisualizer(universe)
 
         bubble = visualizer.plot_weights_bubble("hrp_style", save_html=True)
+        frontier = visualizer.plot_efficient_frontier("hrp_style", save_html=True)
         corr = visualizer.plot_correlation_heatmap(save_html=True)
         cov = visualizer.plot_correlation_heatmap(kind="covariance", save_html=True)
+        dendrogram = visualizer.plot_hrp_dendrogram("hrp_style", save_html=True)
         dist_matrix = visualizer.plot_hrp_distance_matrix("hrp_style", save_html=True)
         dist_hist = visualizer.plot_hrp_distance_histogram("hrp_style", save_html=True)
+        drawdown = visualizer.plot_drawdown("hrp_style", save_html=True)
 
         assert isinstance(bubble, go.Figure)
+        assert isinstance(frontier, go.Figure)
         assert isinstance(corr, go.Figure)
         assert isinstance(cov, go.Figure)
+        assert isinstance(dendrogram, go.Figure)
         assert isinstance(dist_matrix, go.Figure)
         assert isinstance(dist_hist, go.Figure)
+        assert isinstance(drawdown, go.Figure)
 
         assert (universe.plots_dir / "constructions" / "hrp_style" / "weights_bubble.html").exists()
+        assert (universe.plots_dir / "constructions" / "hrp_style" / "efficient_frontier.html").exists()
         assert (universe.plots_dir / "comparisons" / "correlation_heatmap.html").exists()
         assert (universe.plots_dir / "comparisons" / "covariance_heatmap.html").exists()
+        assert (universe.plots_dir / "constructions" / "hrp_style" / "hrp_dendrogram.html").exists()
         assert (universe.plots_dir / "constructions" / "hrp_style" / "hrp_distance_matrix.html").exists()
         assert (universe.plots_dir / "constructions" / "hrp_style" / "hrp_distance_histogram.html").exists()
+        assert (universe.plots_dir / "backtests" / "hrp_style" / "drawdown.html").exists()
     finally:
         shutil.rmtree(root, ignore_errors=True)
 
@@ -261,6 +281,28 @@ def test_visualizer_uses_consistent_accessible_palette_for_key_plots() -> None:
 
         assert mc_distribution.data[0]["marker"]["color"] == visualizer._DISCRETE_COLORS[0]
         assert mc_distribution.data[1]["line"]["color"] == visualizer._DISCRETE_COLORS[1]
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
+def test_visualizer_adds_axis_padding_for_label_heavy_plots() -> None:
+    root = fresh_test_root("axis_padding")
+    try:
+        universe = DummyUniversePlots(root)
+        visualizer = PortfolioVisualizer(universe)
+
+        bar = visualizer.plot_weights_bar("hrp_style")
+        frontier = visualizer.plot_efficient_frontier("hrp_style")
+        drawdown = visualizer.plot_drawdown("hrp_style")
+
+        max_weight = max(bar.data[0]["y"])
+        assert bar.layout.yaxis.range[1] > max_weight
+
+        frontier_returns = np.concatenate([np.asarray(trace["y"], dtype=float) for trace in frontier.data if len(trace["y"])])
+        assert frontier.layout.yaxis.range[1] > float(frontier_returns.max())
+
+        drawdown_values = np.asarray(drawdown.data[0]["y"], dtype=float)
+        assert drawdown.layout.yaxis.range[0] < float(drawdown_values.min())
     finally:
         shutil.rmtree(root, ignore_errors=True)
 

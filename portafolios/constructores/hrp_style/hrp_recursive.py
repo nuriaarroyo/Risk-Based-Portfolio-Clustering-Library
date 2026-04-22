@@ -5,7 +5,7 @@ from typing import Any, Callable, Dict, List, Tuple
 import numpy as np
 import pandas as pd
 
-from .clustering.simple_cluster import hierarchical_clusters
+from .clustering.simple_cluster import hierarchical_cluster_details, hierarchical_clusters
 from .distancias import corr, deprado
 
 
@@ -91,8 +91,19 @@ class HRPRecursive:
 
         # Keep the last asset-return matrix in case plots need it later.
         self.last_asset_returns = asset_returns.copy()
+        self.last_local_weights = {}
+        self.last_cluster_assets = {}
+        self.last_inner_meta_by_cluster = {}
+        self.last_outer_meta = {}
 
         assets = list(asset_returns.columns)
+        full_dist = self.distance_func(asset_returns)
+        full_cluster_details = None
+        if self.clustering_func is hierarchical_clusters:
+            full_cluster_details = hierarchical_cluster_details(full_dist, n_clusters=2)
+            self.last_clusters = [list(cluster) for cluster in full_cluster_details.clusters]
+        else:
+            self.last_clusters = []
 
         # Run the recursive routine on the full universe.
         w = self._recursive_bipartition(asset_returns, assets)
@@ -107,6 +118,20 @@ class HRPRecursive:
             "hrp_distance": self.distance_name,
             "hrp_clustering": self.clustering_name,
         }
+        if full_cluster_details is not None:
+            meta["hrp_cluster_labels"] = full_cluster_details.labels.to_dict()
+            meta["hrp_linkage_matrix"] = full_cluster_details.linkage_matrix.tolist()
+
+        self.last_dist = full_dist
+        self.last_cluster_returns = pd.DataFrame()
+        self.last_w_clusters = pd.Series(dtype=float)
+        self.last_final_weights = w.copy()
+        self.last_linkage_matrix = (
+            full_cluster_details.linkage_matrix.copy() if full_cluster_details is not None else None
+        )
+        self.last_cluster_labels = (
+            full_cluster_details.labels.copy() if full_cluster_details is not None else None
+        )
 
         return w, meta
 

@@ -6,6 +6,8 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from scipy.cluster.hierarchy import dendrogram
+from scipy.optimize import minimize
 
 
 class PortfolioVisualizer:
@@ -77,6 +79,7 @@ class PortfolioVisualizer:
             textposition="outside",
             textfont=dict(color=self._TEXT_COLOR),
             hovertemplate="Asset=%{x}<br>Weight=%{y:.2%}<extra></extra>",
+            cliponaxis=False,
         )
         self._apply_base_layout(
             fig,
@@ -148,6 +151,7 @@ class PortfolioVisualizer:
             marker=dict(color=colors, line=dict(color=self._BACKGROUND_COLOR, width=1)),
             textfont=dict(color=self._TEXT_COLOR),
             hovertemplate="Asset=%{x}<br>Weight=%{y:.2%}<extra></extra>",
+            cliponaxis=False,
         )
         self._apply_base_layout(
             fig,
@@ -207,6 +211,7 @@ class PortfolioVisualizer:
             textposition="top center",
             marker=dict(color=colors, line=dict(color=self._BACKGROUND_COLOR, width=1)),
             textfont=dict(color=self._TEXT_COLOR),
+            cliponaxis=False,
         )
         self._apply_base_layout(
             fig,
@@ -352,6 +357,175 @@ class PortfolioVisualizer:
             kind="construction",
             construction_name=construction_name,
             default_filename="hrp_distance_histogram.html",
+        )
+        return fig
+
+    def plot_hrp_dendrogram(
+        self,
+        construction_name: str,
+        save_html: bool = False,
+        filename: str | None = None,
+    ) -> go.Figure:
+        diagnostics = self._get_hrp_diagnostics(construction_name)
+        linkage_matrix = diagnostics.linkage_matrix
+        if linkage_matrix is None:
+            raise ValueError(f"The HRP diagnostics for '{construction_name}' do not include a linkage matrix.")
+
+        labels = list(diagnostics.distance_matrix.index)
+        dendro = dendrogram(linkage_matrix, labels=labels, no_plot=True)
+
+        fig = go.Figure()
+        for xs, ys in zip(dendro["icoord"], dendro["dcoord"]):
+            fig.add_trace(
+                go.Scatter(
+                    x=xs,
+                    y=ys,
+                    mode="lines",
+                    line=dict(color=self._DISCRETE_COLORS[0], width=2),
+                    showlegend=False,
+                    hoverinfo="skip",
+                )
+            )
+
+        tickvals = list(range(5, 10 * len(dendro["ivl"]) + 5, 10))
+        self._apply_base_layout(
+            fig=fig,
+            title=f"HRP Dendrogram - {construction_name}",
+            xaxis_title="Asset",
+            yaxis_title="Cluster Distance",
+            show_grid_x=False,
+        )
+        fig.update_xaxes(tickmode="array", tickvals=tickvals, ticktext=dendro["ivl"])
+        self._maybe_save_html(
+            fig,
+            save_html=save_html,
+            filename=filename,
+            kind="construction",
+            construction_name=construction_name,
+            default_filename="hrp_dendrogram.html",
+        )
+        return fig
+
+    def plot_drawdown(
+        self,
+        construction_name: str,
+        start_date: str | pd.Timestamp | None = None,
+        end_date: str | pd.Timestamp | None = None,
+        save_html: bool = False,
+        filename: str | None = None,
+    ) -> go.Figure:
+        backtest = self._get_backtest(construction_name)
+        drawdown_series = backtest.drawdown_series
+        if drawdown_series is None:
+            raise ValueError(f"The construction '{construction_name}' does not include a drawdown series.")
+
+        series = self._slice_series(drawdown_series, start_date=start_date, end_date=end_date)
+        fig = go.Figure()
+        fig.add_trace(
+            go.Scatter(
+                x=series.index,
+                y=series.values,
+                mode="lines",
+                name="Drawdown",
+                line=dict(color=self._DISCRETE_COLORS[3], width=2.5),
+                fill="tozeroy",
+                fillcolor=self._rgba(self._DISCRETE_COLORS[3], 0.2),
+            )
+        )
+        self._apply_base_layout(
+            fig=fig,
+            title=f"Backtest Drawdown - {construction_name}",
+            xaxis_title="Date",
+            yaxis_title="Drawdown",
+        )
+        self._maybe_save_html(
+            fig,
+            save_html=save_html,
+            filename=filename,
+            kind="backtest",
+            construction_name=construction_name,
+            default_filename="drawdown.html",
+        )
+        return fig
+
+    def plot_efficient_frontier(
+        self,
+        construction_name: str,
+        n_points: int = 30,
+        allow_short: bool | None = None,
+        save_html: bool = False,
+        filename: str | None = None,
+    ) -> go.Figure:
+        construction = self._get_construction(construction_name)
+        returns_frame = self._get_construction_returns(construction_name).dropna(axis=0, how="any")
+        if returns_frame.shape[0] < 2 or returns_frame.shape[1] < 2:
+            raise ValueError(f"The construction window for '{construction_name}' does not have enough data for an efficient frontier.")
+
+        expected_returns = returns_frame.mean()
+        covariance = returns_frame.cov()
+        if allow_short is None:
+            allow_short = bool(construction.params.get("allow_short", False))
+
+        frontier = self._compute_efficient_frontier(
+            expected_returns=expected_returns,
+            covariance=covariance,
+            allow_short=allow_short,
+            n_points=n_points,
+        )
+        weights = construction.weights.reindex(expected_returns.index).fillna(0.0).to_numpy(dtype=float)
+        current_return = float(weights @ expected_returns.to_numpy(dtype=float))
+        current_volatility = self._portfolio_volatility(weights, covariance.to_numpy(dtype=float))
+        asset_volatility = np.sqrt(np.diag(covariance.to_numpy(dtype=float)))
+
+        fig = go.Figure()
+        if not frontier.empty:
+            fig.add_trace(
+                go.Scatter(
+                    x=frontier["volatility"],
+                    y=frontier["expected_return"],
+                    mode="lines",
+                    name="Efficient frontier",
+                    line=dict(color=self._DISCRETE_COLORS[1], width=3),
+                )
+            )
+
+        colors = self._colors_for_items(expected_returns.index)
+        fig.add_trace(
+            go.Scatter(
+                x=asset_volatility,
+                y=expected_returns.values,
+                mode="markers+text",
+                name="Assets",
+                text=list(expected_returns.index),
+                textposition="top center",
+                marker=dict(color=colors, size=12, line=dict(color=self._BACKGROUND_COLOR, width=1)),
+                textfont=dict(color=self._TEXT_COLOR),
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=[current_volatility],
+                y=[current_return],
+                mode="markers",
+                name=f"{construction_name} portfolio",
+                marker=dict(color=self._DISCRETE_COLORS[2], symbol="star", size=16, line=dict(color=self._BACKGROUND_COLOR, width=1)),
+            )
+        )
+
+        self._apply_base_layout(
+            fig=fig,
+            title=f"Efficient Frontier - {construction_name}",
+            xaxis_title="Volatility",
+            yaxis_title="Expected Return",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+        )
+        self._maybe_save_html(
+            fig,
+            save_html=save_html,
+            filename=filename,
+            kind="construction",
+            construction_name=construction_name,
+            default_filename="efficient_frontier.html",
         )
         return fig
 
@@ -703,6 +877,99 @@ class PortfolioVisualizer:
             font=dict(color=color),
         )
 
+    def _compute_efficient_frontier(
+        self,
+        *,
+        expected_returns: pd.Series,
+        covariance: pd.DataFrame,
+        allow_short: bool,
+        n_points: int,
+    ) -> pd.DataFrame:
+        mu = expected_returns.to_numpy(dtype=float)
+        cov = covariance.to_numpy(dtype=float)
+        if mu.size < 2:
+            return pd.DataFrame(columns=["volatility", "expected_return", "target_return"])
+
+        bounds = tuple(((-1.0, 1.0) if allow_short else (0.0, 1.0)) for _ in range(mu.size))
+        targets = np.linspace(float(mu.min()), float(mu.max()), max(2, n_points))
+        rows: list[dict[str, float]] = []
+        previous_weights: np.ndarray | None = None
+
+        for target in targets:
+            result = minimize(
+                fun=lambda weights, cov_matrix=cov: self._portfolio_volatility(weights, cov_matrix),
+                x0=self._initial_frontier_guess(mu, target, allow_short, previous_weights),
+                method="SLSQP",
+                bounds=bounds,
+                constraints=(
+                    {"type": "eq", "fun": lambda weights: float(np.sum(weights) - 1.0)},
+                    {"type": "eq", "fun": lambda weights, mu_values=mu, target_return=target: float(weights @ mu_values - target_return)},
+                ),
+            )
+            if not result.success:
+                continue
+
+            weights = np.asarray(result.x, dtype=float)
+            if not np.isfinite(weights).all() or not np.isclose(weights.sum(), 1.0, atol=1e-5):
+                continue
+
+            previous_weights = weights
+            rows.append(
+                {
+                    "volatility": self._portfolio_volatility(weights, cov),
+                    "expected_return": float(weights @ mu),
+                    "target_return": float(target),
+                }
+            )
+
+        frontier = pd.DataFrame(rows)
+        if frontier.empty:
+            return frontier
+        return frontier.drop_duplicates(subset=["volatility", "expected_return"]).sort_values("volatility").reset_index(drop=True)
+
+    def _initial_frontier_guess(
+        self,
+        expected_returns: np.ndarray,
+        target_return: float,
+        allow_short: bool,
+        previous_weights: np.ndarray | None,
+    ) -> np.ndarray:
+        if previous_weights is not None and np.isfinite(previous_weights).all():
+            return previous_weights
+
+        n_assets = expected_returns.size
+        if allow_short or n_assets == 1:
+            return np.full(n_assets, 1.0 / n_assets, dtype=float)
+
+        order = np.argsort(expected_returns)
+        sorted_returns = expected_returns[order]
+        guess = np.zeros(n_assets, dtype=float)
+        if target_return <= sorted_returns[0]:
+            guess[order[0]] = 1.0
+            return guess
+        if target_return >= sorted_returns[-1]:
+            guess[order[-1]] = 1.0
+            return guess
+
+        for idx in range(n_assets - 1):
+            left_return = sorted_returns[idx]
+            right_return = sorted_returns[idx + 1]
+            if left_return <= target_return <= right_return:
+                if np.isclose(left_return, right_return):
+                    guess[order[idx]] = 1.0
+                    return guess
+                right_weight = (target_return - left_return) / (right_return - left_return)
+                left_weight = 1.0 - right_weight
+                guess[order[idx]] = left_weight
+                guess[order[idx + 1]] = right_weight
+                return guess
+
+        return np.full(n_assets, 1.0 / n_assets, dtype=float)
+
+    def _portfolio_volatility(self, weights: np.ndarray, covariance: np.ndarray) -> float:
+        variance = float(np.asarray(weights, dtype=float) @ covariance @ np.asarray(weights, dtype=float))
+        return float(np.sqrt(max(variance, 0.0)))
+
     def _colors_for_items(self, items) -> list[str]:
         colors = list(self._DISCRETE_COLORS)
         return [colors[idx % len(colors)] for idx, _ in enumerate(items)]
@@ -728,6 +995,7 @@ class PortfolioVisualizer:
             "plot_bgcolor": self._BACKGROUND_COLOR,
             "font": dict(color=self._TEXT_COLOR),
             "colorway": list(self._DISCRETE_COLORS),
+            "margin": dict(t=90, r=40, b=70, l=80),
         }
         if xaxis_title is not None:
             layout_kwargs["xaxis_title"] = xaxis_title
@@ -742,8 +1010,65 @@ class PortfolioVisualizer:
         if bargap is not None:
             layout_kwargs["bargap"] = bargap
         fig.update_layout(**layout_kwargs)
-        fig.update_xaxes(showgrid=show_grid_x, gridcolor=self._GRID_COLOR, zerolinecolor=self._GRID_COLOR)
-        fig.update_yaxes(showgrid=show_grid_y, gridcolor=self._GRID_COLOR, zerolinecolor=self._GRID_COLOR)
+        fig.update_xaxes(showgrid=show_grid_x, gridcolor=self._GRID_COLOR, zerolinecolor=self._GRID_COLOR, automargin=True)
+        fig.update_yaxes(showgrid=show_grid_y, gridcolor=self._GRID_COLOR, zerolinecolor=self._GRID_COLOR, automargin=True)
+        self._apply_axis_padding(fig)
+
+    def _apply_axis_padding(self, fig: go.Figure) -> None:
+        self._pad_axis(fig, "x")
+        self._pad_axis(fig, "y")
+
+    def _pad_axis(self, fig: go.Figure, axis_name: str) -> None:
+        values = self._collect_axis_values(fig, axis_name)
+        if not values:
+            return
+
+        axis = getattr(fig.layout, f"{axis_name}axis")
+        if all(self._is_date_like_value(value) for value in values):
+            datelike = pd.to_datetime(pd.Series(values, dtype=object), errors="coerce").dropna()
+            min_value = datelike.min()
+            max_value = datelike.max()
+            span = max_value - min_value
+            pad = pd.Timedelta(days=1) if span == pd.Timedelta(0) else max(pd.Timedelta(days=1), span * 0.12)
+            axis.update(range=[min_value - pad, max_value + pad])
+            return
+
+        numeric = pd.to_numeric(pd.Series(values, dtype=object), errors="coerce").dropna()
+        if numeric.empty or len(numeric) != len(values):
+            return
+
+        min_value = float(numeric.min())
+        max_value = float(numeric.max())
+        pad = max(abs(max_value), 1.0) * 0.12 if np.isclose(min_value, max_value) else (max_value - min_value) * 0.12
+        lower = min_value - pad
+        upper = max_value + pad
+        if axis_name == "y" and min_value >= 0:
+            lower = min(0.0, min_value - pad * 0.35)
+        axis.update(range=[lower, upper])
+
+    def _collect_axis_values(self, fig: go.Figure, axis_name: str) -> list[Any]:
+        values: list[Any] = []
+        axis_ref_name = f"{axis_name}axis"
+        for trace in fig.data:
+            trace_axis = getattr(trace, axis_ref_name, None)
+            if trace_axis not in (None, axis_name):
+                continue
+            raw = getattr(trace, axis_name, None)
+            if raw is None:
+                continue
+            raw_array = np.asarray(raw, dtype=object).ravel()
+            for value in raw_array:
+                if value is None or (isinstance(value, float) and np.isnan(value)):
+                    continue
+                values.append(value)
+        return values
+
+    def _is_date_like_value(self, value: Any) -> bool:
+        if isinstance(value, (pd.Timestamp, np.datetime64)):
+            return True
+        if not isinstance(value, str):
+            return False
+        return not pd.isna(pd.to_datetime(value, errors="coerce"))
 
     def _rgba(self, color: str, alpha: float) -> str:
         color = color.lstrip("#")
@@ -761,12 +1086,28 @@ class PortfolioVisualizer:
             self.plot_weights_pie(construction_name, save_html=True)
             self.plot_weights_scatter(construction_name, save_html=True)
             self.plot_weights_bubble(construction_name, save_html=True)
-            saved[construction_name] = [
+            self.plot_efficient_frontier(construction_name, save_html=True)
+            saved_files = [
                 "weights_bar.html",
                 "weights_pie.html",
                 "weights_scatter.html",
                 "weights_bubble.html",
+                "efficient_frontier.html",
             ]
+            hrp_diagnostics = self._get_construction(construction_name).hrp_diagnostics
+            if hrp_diagnostics is not None:
+                if hrp_diagnostics.linkage_matrix is not None:
+                    self.plot_hrp_dendrogram(construction_name, save_html=True)
+                    saved_files.append("hrp_dendrogram.html")
+                self.plot_hrp_distance_matrix(construction_name, save_html=True)
+                self.plot_hrp_distance_histogram(construction_name, save_html=True)
+                saved_files.extend(
+                    [
+                        "hrp_distance_matrix.html",
+                        "hrp_distance_histogram.html",
+                    ]
+                )
+            saved[construction_name] = saved_files
         return saved
 
     def save_all_backtest_plots(self) -> dict[str, list[str]]:
@@ -774,7 +1115,8 @@ class PortfolioVisualizer:
         available = self._available_backtests()
         for construction_name in available:
             self.plot_backtest(construction_name, save_html=True)
-            saved[construction_name] = ["backtest.html"]
+            self.plot_drawdown(construction_name, save_html=True)
+            saved[construction_name] = ["backtest.html", "drawdown.html"]
 
         if available:
             self.plot_backtest_comparison(save_html=True)

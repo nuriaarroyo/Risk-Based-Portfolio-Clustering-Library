@@ -7,8 +7,6 @@ from typing import Any, Callable, Iterable, Optional
 
 import pandas as pd
 
-from portafolios.constructores.hrp_style.hrp_core import HRPStyle
-
 from ..data.base import StandardizedData
 from ..metrics import asset as am
 from ..metrics import portfolio as pm
@@ -430,7 +428,8 @@ class PortfolioUniverse:
     def _extract_construction_diagnostics(self, constructor) -> dict[str, Any]:
         diagnostics: dict[str, Any] = {}
 
-        if isinstance(constructor, HRPStyle) and hasattr(constructor, "last_dist"):
+        method_id = getattr(constructor, "method_id", "")
+        if method_id.startswith("hrp_") and hasattr(constructor, "last_dist"):
             local_weights = {
                 cluster_name: cluster_weights.copy()
                 for cluster_name, cluster_weights in getattr(constructor, "last_local_weights", {}).items()
