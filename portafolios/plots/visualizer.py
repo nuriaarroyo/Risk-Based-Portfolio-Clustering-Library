@@ -85,6 +85,180 @@ class PortfolioVisualizer:
         self._maybe_save_html(fig, save_html=save_html, filename=filename, kind="construction", construction_name=construction_name, default_filename="weights_scatter.html")
         return fig
 
+    def plot_weights_bubble(
+        self,
+        construction_name: str,
+        drop_zero: bool = True,
+        save_html: bool = False,
+        filename: str | None = None,
+    ) -> go.Figure:
+        weights = self._get_weights(construction_name, drop_zero=drop_zero, sort=False)
+        returns_frame = self._get_construction_returns(construction_name)
+        asset_stats = pd.DataFrame(
+            {
+                "asset": weights.index,
+                "weight": weights.values,
+                "abs_weight": np.abs(weights.values),
+                "expected_return": returns_frame[weights.index].mean().values,
+                "volatility": returns_frame[weights.index].std().values,
+            }
+        )
+        asset_stats["sharpe_like"] = asset_stats["expected_return"] / asset_stats["volatility"].replace(0, np.nan)
+
+        fig = px.scatter(
+            asset_stats,
+            x="expected_return",
+            y="volatility",
+            size="abs_weight",
+            text="asset",
+            hover_data={
+                "asset": False,
+                "weight": ":.2%",
+                "expected_return": ":.4f",
+                "volatility": ":.4f",
+                "sharpe_like": ":.3f",
+                "abs_weight": False,
+            },
+            title=f"Weights Bubble - {construction_name}",
+            labels={
+                "expected_return": "Expected Return",
+                "volatility": "Volatility",
+                "abs_weight": "Abs Weight",
+            },
+            size_max=60,
+        )
+        fig.update_traces(mode="markers+text", textposition="top center")
+        self._maybe_save_html(
+            fig,
+            save_html=save_html,
+            filename=filename,
+            kind="construction",
+            construction_name=construction_name,
+            default_filename="weights_bubble.html",
+        )
+        return fig
+
+    def plot_correlation_heatmap(
+        self,
+        kind: str = "correlation",
+        round_decimals: int = 2,
+        save_html: bool = False,
+        filename: str | None = None,
+    ) -> go.Figure:
+        matrix = self._get_matrix(kind)
+        z = matrix.values.astype(float)
+        if kind == "correlation":
+            zmin, zmax = -1.0, 1.0
+            title = "Correlation Heatmap"
+        else:
+            max_abs = np.nanmax(np.abs(z)) if np.isfinite(z).any() else 1.0
+            zmin, zmax = -max_abs, max_abs
+            title = "Covariance Heatmap"
+
+        text = np.vectorize(lambda value: f"{value:.{round_decimals}f}")(z)
+        fig = go.Figure(
+            data=go.Heatmap(
+                z=z,
+                x=list(matrix.columns),
+                y=list(matrix.index),
+                colorscale="RdBu",
+                zmin=zmin,
+                zmax=zmax,
+                text=text,
+                hovertemplate="x=%{x}<br>y=%{y}<br>value=%{z:.4f}<extra></extra>",
+                colorbar=dict(title=kind.title()),
+            )
+        )
+        fig.update_layout(
+            title=title,
+            xaxis_title="Asset",
+            yaxis_title="Asset",
+        )
+        self._maybe_save_html(
+            fig,
+            save_html=save_html,
+            filename=filename,
+            kind="comparison",
+            construction_name=None,
+            default_filename=f"{kind}_heatmap.html",
+        )
+        return fig
+
+    def plot_hrp_distance_matrix(
+        self,
+        construction_name: str,
+        reorder_clusters: bool = True,
+        save_html: bool = False,
+        filename: str | None = None,
+    ) -> go.Figure:
+        diagnostics = self._get_hrp_diagnostics(construction_name)
+        matrix = diagnostics.distance_matrix.copy()
+        if reorder_clusters and diagnostics.clusters:
+            ordered = [asset for cluster in diagnostics.clusters for asset in cluster if asset in matrix.index]
+            if ordered:
+                matrix = matrix.loc[ordered, ordered]
+
+        fig = go.Figure(
+            data=go.Heatmap(
+                z=matrix.values.astype(float),
+                x=list(matrix.columns),
+                y=list(matrix.index),
+                colorscale="RdBu",
+                colorbar=dict(title="Distance"),
+            )
+        )
+        fig.update_layout(
+            title=f"HRP Distance Matrix - {construction_name}",
+            xaxis_title="Asset",
+            yaxis_title="Asset",
+        )
+        self._maybe_save_html(
+            fig,
+            save_html=save_html,
+            filename=filename,
+            kind="construction",
+            construction_name=construction_name,
+            default_filename="hrp_distance_matrix.html",
+        )
+        return fig
+
+    def plot_hrp_distance_histogram(
+        self,
+        construction_name: str,
+        bins: int = 40,
+        save_html: bool = False,
+        filename: str | None = None,
+    ) -> go.Figure:
+        diagnostics = self._get_hrp_diagnostics(construction_name)
+        distance_matrix = diagnostics.distance_matrix.values.astype(float)
+        triu = np.triu_indices_from(distance_matrix, k=1)
+        distances = distance_matrix[triu]
+        if distances.size == 0:
+            raise ValueError(f"The HRP diagnostics for '{construction_name}' do not include pairwise distances.")
+
+        fig = go.Figure(
+            data=go.Histogram(
+                x=distances,
+                nbinsx=max(10, bins),
+                marker=dict(color="#4C78A8", opacity=0.8),
+            )
+        )
+        fig.update_layout(
+            title=f"HRP Distance Histogram - {construction_name}",
+            xaxis_title="Distance",
+            yaxis_title="Count",
+            bargap=0.05,
+        )
+        self._maybe_save_html(
+            fig,
+            save_html=save_html,
+            filename=filename,
+            kind="construction",
+            construction_name=construction_name,
+            default_filename="hrp_distance_histogram.html",
+        )
+        return fig
+
     def plot_backtest(
         self,
         construction_name: str,
@@ -297,12 +471,66 @@ class PortfolioVisualizer:
             raise ValueError(f"La construccion '{construction_name}' no tiene MonteCarloResult adjunto.")
         return construction.mc_result
 
+    def _get_hrp_diagnostics(self, construction_name: str):
+        construction = self._get_construction(construction_name)
+        diagnostics = construction.hrp_diagnostics
+        if diagnostics is None:
+            raise ValueError(f"The construction '{construction_name}' does not include HRP diagnostics.")
+        return diagnostics
+
     def _available_backtests(self) -> dict[str, Any]:
         return {
             name: result.backtest_result
             for name, result in self.universe.constructions.items()
             if result.backtest_result is not None
         }
+
+    def _get_construction_returns(self, construction_name: str) -> pd.DataFrame:
+        construction = self._get_construction(construction_name)
+        if hasattr(self.universe, "get_returns_window"):
+            return self.universe.get_returns_window(
+                construction.construction_start,
+                construction.construction_end,
+            )
+
+        returns_frame = getattr(self.universe, "asset_returns", None)
+        if returns_frame is None:
+            raise ValueError("The universe does not expose returns needed for construction plots.")
+
+        out = returns_frame.copy()
+        if construction.construction_start is not None:
+            out = out.loc[out.index >= construction.construction_start]
+        if construction.construction_end is not None:
+            out = out.loc[out.index <= construction.construction_end]
+        if out.empty:
+            raise ValueError(f"The construction window for '{construction_name}' has no returns available.")
+        return out
+
+    def _get_matrix(self, kind: str) -> pd.DataFrame:
+        if kind == "correlation":
+            matrix = getattr(self.universe, "correlation", None)
+            if matrix is None:
+                asset_log_returns = getattr(self.universe, "asset_log_returns", None)
+                asset_returns = getattr(self.universe, "asset_returns", None)
+                if asset_log_returns is not None:
+                    matrix = asset_log_returns.corr()
+                elif asset_returns is not None:
+                    matrix = asset_returns.corr()
+        elif kind == "covariance":
+            matrix = getattr(self.universe, "covariance", None)
+            if matrix is None:
+                asset_log_returns = getattr(self.universe, "asset_log_returns", None)
+                asset_returns = getattr(self.universe, "asset_returns", None)
+                if asset_log_returns is not None:
+                    matrix = asset_log_returns.cov()
+                elif asset_returns is not None:
+                    matrix = asset_returns.cov()
+        else:
+            raise ValueError("`kind` must be 'correlation' or 'covariance'.")
+
+        if not isinstance(matrix, pd.DataFrame) or matrix.empty:
+            raise ValueError(f"No {kind} matrix is available to plot.")
+        return matrix.loc[matrix.index, matrix.index]
 
     def _slice_series(
         self,
@@ -368,10 +596,12 @@ class PortfolioVisualizer:
             self.plot_weights_bar(construction_name, save_html=True)
             self.plot_weights_pie(construction_name, save_html=True)
             self.plot_weights_scatter(construction_name, save_html=True)
+            self.plot_weights_bubble(construction_name, save_html=True)
             saved[construction_name] = [
                 "weights_bar.html",
                 "weights_pie.html",
                 "weights_scatter.html",
+                "weights_bubble.html",
             ]
         return saved
 

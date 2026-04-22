@@ -5,11 +5,13 @@ import sys
 from pathlib import Path
 
 import pandas as pd
+import plotly.graph_objects as go
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from portafolios.core.types import ConstructionResult, HRPDiagnostics
 from portafolios.plots import PortfolioVisualizer
 from scripts.run_final_experimental_setup import save_mc_terminal_comparison_plot
 
@@ -57,6 +59,72 @@ class DummyUniversePaths:
             path = path / construction_name
         path.mkdir(parents=True, exist_ok=True)
         return path
+
+
+class DummyUniversePlots(DummyUniversePaths):
+    def __init__(self, root: Path) -> None:
+        super().__init__(root)
+        self.asset_returns = pd.DataFrame(
+            {
+                "AAPL": [0.01, 0.02, -0.01, 0.03],
+                "MSFT": [0.00, 0.01, 0.02, -0.02],
+                "JPM": [0.02, -0.01, 0.01, 0.00],
+            },
+            index=pd.to_datetime(["2024-01-02", "2024-01-03", "2024-01-04", "2024-01-05"]),
+        )
+        self.asset_log_returns = self.asset_returns.copy()
+        self.correlation = self.asset_returns.corr()
+        self.covariance = self.asset_returns.cov()
+        hrp = ConstructionResult(
+            name="hrp_style",
+            method_id="hrp_style",
+            display_name="HRP Style",
+            weights=pd.Series({"AAPL": 0.5, "MSFT": 0.3, "JPM": 0.2}),
+            selected_assets=["AAPL", "MSFT", "JPM"],
+            params={},
+            metrics_insample={},
+            construction_start=pd.Timestamp("2024-01-02"),
+            construction_end=pd.Timestamp("2024-01-05"),
+            diagnostics={
+                "hrp": HRPDiagnostics(
+                    distance_matrix=pd.DataFrame(
+                        [
+                            [0.0, 0.2, 0.4],
+                            [0.2, 0.0, 0.3],
+                            [0.4, 0.3, 0.0],
+                        ],
+                        index=["AAPL", "MSFT", "JPM"],
+                        columns=["AAPL", "MSFT", "JPM"],
+                    ),
+                    clusters=[["AAPL", "MSFT"], ["JPM"]],
+                    cluster_returns=pd.DataFrame(),
+                    cluster_weights=pd.Series(dtype=float),
+                    local_weights={},
+                    final_weights=pd.Series(dtype=float),
+                )
+            },
+        )
+        self.constructions = {hrp.name: hrp}
+        self._construction_names = list(self.constructions)
+
+    def get_construction(self, construction_name: str) -> ConstructionResult:
+        return self.constructions[construction_name]
+
+    def get_returns_window(
+        self,
+        start: str | pd.Timestamp | None = None,
+        end: str | pd.Timestamp | None = None,
+        *,
+        dropna: bool = True,
+    ) -> pd.DataFrame:
+        window = self.asset_returns.copy()
+        if start is not None:
+            window = window.loc[window.index >= pd.Timestamp(start)]
+        if end is not None:
+            window = window.loc[window.index <= pd.Timestamp(end)]
+        if dropna:
+            window = window.dropna(axis=0, how="any")
+        return window
 
 
 def fresh_test_root(name: str) -> Path:
@@ -115,6 +183,33 @@ def test_visualizer_cleans_legacy_plot_locations() -> None:
         PortfolioVisualizer(universe).cleanup_legacy_plot_outputs()
 
         assert all(not path.exists() for path in legacy_paths)
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
+def test_visualizer_diagnostic_plot_helpers_save_in_clean_locations() -> None:
+    root = fresh_test_root("diagnostic_plots")
+    try:
+        universe = DummyUniversePlots(root)
+        visualizer = PortfolioVisualizer(universe)
+
+        bubble = visualizer.plot_weights_bubble("hrp_style", save_html=True)
+        corr = visualizer.plot_correlation_heatmap(save_html=True)
+        cov = visualizer.plot_correlation_heatmap(kind="covariance", save_html=True)
+        dist_matrix = visualizer.plot_hrp_distance_matrix("hrp_style", save_html=True)
+        dist_hist = visualizer.plot_hrp_distance_histogram("hrp_style", save_html=True)
+
+        assert isinstance(bubble, go.Figure)
+        assert isinstance(corr, go.Figure)
+        assert isinstance(cov, go.Figure)
+        assert isinstance(dist_matrix, go.Figure)
+        assert isinstance(dist_hist, go.Figure)
+
+        assert (universe.plots_dir / "constructions" / "hrp_style" / "weights_bubble.html").exists()
+        assert (universe.plots_dir / "comparisons" / "correlation_heatmap.html").exists()
+        assert (universe.plots_dir / "comparisons" / "covariance_heatmap.html").exists()
+        assert (universe.plots_dir / "constructions" / "hrp_style" / "hrp_distance_matrix.html").exists()
+        assert (universe.plots_dir / "constructions" / "hrp_style" / "hrp_distance_histogram.html").exists()
     finally:
         shutil.rmtree(root, ignore_errors=True)
 
