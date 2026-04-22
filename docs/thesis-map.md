@@ -39,4 +39,5 @@ This document is the shortest path through the repository for a thesis reader.
 ## Generated Run Artifacts
 
 - The library writes per-run artifacts such as `data/`, `constructions/`, `backtests/`, `monte_carlo/`, and `plots/`.
+- Within each run, HTML figures live under `plots/` while saved numeric outputs remain in `constructions/`, `backtests/`, and `monte_carlo/`.
 - These large generated outputs are intentionally treated as reproducible local artifacts rather than the main tracked thesis surface.

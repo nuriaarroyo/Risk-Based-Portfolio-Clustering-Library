@@ -432,7 +432,9 @@ def save_mc_terminal_comparison_plot(
         template="plotly_white",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
     )
-    output_path = run_dir / "plots" / "mc_terminal_comparison.html"
+    legacy_output_path = run_dir / "plots" / "mc_terminal_comparison.html"
+    legacy_output_path.unlink(missing_ok=True)
+    output_path = run_dir / "plots" / "comparisons" / "mc_terminal_comparison.html"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     fig.write_html(str(output_path))
     return output_path
@@ -628,7 +630,10 @@ def run_one_experiment(
             }
         )
     terminal_values_frame = pd.DataFrame(terminal_values_wide)
-    terminal_values_frame.to_csv(universe.output_dir / "plots" / "mc_terminal_values.csv", index=False)
+    legacy_terminal_values_path = universe.output_dir / "plots" / "mc_terminal_values.csv"
+    legacy_terminal_values_path.unlink(missing_ok=True)
+    terminal_values_path = universe.monte_carlo_dir / "comparison_terminal_values.csv"
+    terminal_values_frame.to_csv(terminal_values_path, index=False)
     if save_plots:
         save_mc_terminal_comparison_plot(universe.output_dir, run_id, terminal_values_frame)
     return {"config": config, "rows": rows, "terminal_rows": terminal_rows}

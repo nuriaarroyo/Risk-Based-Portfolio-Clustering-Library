@@ -13,6 +13,19 @@ class PortfolioVisualizer:
     Plotly visualization layer for a universe with saved constructions.
     """
 
+    _PLOT_DIRS = {
+        "construction": "constructions",
+        "backtest": "backtests",
+        "monte_carlo": "monte_carlo",
+        "comparison": "comparisons",
+    }
+
+    _LEGACY_PLOT_FILES = {
+        "construction": ("weights_bar.html", "weights_pie.html", "weights_scatter.html"),
+        "backtest": ("backtest.html",),
+        "monte_carlo": ("mc_paths.html", "mc_distribution.html"),
+    }
+
     def __init__(self, universe) -> None:
         self.universe = universe
 
@@ -394,6 +407,7 @@ class PortfolioVisualizer:
         constructions = self.universe.save_all_constructions()
         backtests = self.universe.save_all_backtests()
         monte_carlo = self.universe.save_all_monte_carlo()
+        self.cleanup_legacy_plot_outputs()
         construction_plots = self.save_all_construction_plots()
         backtest_plots = self.save_all_backtest_plots()
         monte_carlo_plots = self.save_all_monte_carlo_plots(max_paths=max_mc_paths)
@@ -407,6 +421,18 @@ class PortfolioVisualizer:
             "backtest_plots": backtest_plots,
             "monte_carlo_plots": monte_carlo_plots,
         }
+
+    def cleanup_legacy_plot_outputs(self) -> None:
+        for construction_name in self.universe.list_constructions():
+            for filename in self._LEGACY_PLOT_FILES["construction"]:
+                (self.universe.get_construction_dir(construction_name) / filename).unlink(missing_ok=True)
+            for filename in self._LEGACY_PLOT_FILES["backtest"]:
+                (self.universe.get_backtest_dir(construction_name) / filename).unlink(missing_ok=True)
+            for filename in self._LEGACY_PLOT_FILES["monte_carlo"]:
+                (self.universe.get_mc_dir(construction_name) / filename).unlink(missing_ok=True)
+
+        legacy_comparison_dir = self.universe.get_plot_dir()
+        (legacy_comparison_dir / "backtest_comparison.html").unlink(missing_ok=True)
 
     def _maybe_save_html(
         self,
@@ -437,19 +463,28 @@ class PortfolioVisualizer:
     ):
         if kind == "construction":
             if construction_name is None:
-                raise ValueError("construction_name es requerido para guardar figuras de construccion.")
-            base_dir = self.universe.get_construction_dir(construction_name)
+                raise ValueError("`construction_name` is required to save construction plots.")
+            base_dir = self.universe.get_plot_dir(
+                category=self._PLOT_DIRS[kind],
+                construction_name=construction_name,
+            )
         elif kind == "backtest":
             if construction_name is None:
-                raise ValueError("construction_name es requerido para guardar figuras de backtest.")
-            base_dir = self.universe.get_backtest_dir(construction_name)
+                raise ValueError("`construction_name` is required to save backtest plots.")
+            base_dir = self.universe.get_plot_dir(
+                category=self._PLOT_DIRS[kind],
+                construction_name=construction_name,
+            )
         elif kind == "monte_carlo":
             if construction_name is None:
-                raise ValueError("construction_name es requerido para guardar figuras de Monte Carlo.")
-            base_dir = self.universe.get_mc_dir(construction_name)
+                raise ValueError("`construction_name` is required to save Monte Carlo plots.")
+            base_dir = self.universe.get_plot_dir(
+                category=self._PLOT_DIRS[kind],
+                construction_name=construction_name,
+            )
         elif kind == "comparison":
-            base_dir = self.universe.get_plot_dir()
+            base_dir = self.universe.get_plot_dir(category=self._PLOT_DIRS[kind])
         else:
-            raise ValueError(f"Tipo de figura desconocido: {kind}")
+            raise ValueError(f"Unknown plot kind: {kind}")
 
         return base_dir / filename

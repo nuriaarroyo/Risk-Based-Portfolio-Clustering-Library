@@ -72,3 +72,4 @@ That keeps `--source yfinance` as the main entrypoint while still making the sav
 
 - Large generated outputs are intentionally not the main tracked face of the repository.
 - The cleanup branch keeps the project presentation focused on code, thesis notebooks, and curated final exports.
+- In each framework run, HTML plots now live under `plots/`, while saved CSV/JSON artifacts stay in `data/`, `constructions/`, `backtests/`, and `monte_carlo/`.

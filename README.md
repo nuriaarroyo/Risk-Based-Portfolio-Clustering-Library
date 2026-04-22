@@ -125,7 +125,17 @@ outputs/runs/<universe_name>/
 |- backtests/
 |- monte_carlo/
 `- plots/
+   |- constructions/
+   |- backtests/
+   |- monte_carlo/
+   `- comparisons/
 ```
+
+The storage split is intentional:
+
+- `constructions/`, `backtests/`, and `monte_carlo/` keep saved weights, return series, simulation tables, and JSON metadata
+- `plots/` keeps HTML figures only, grouped by plot type instead of mixing them into the data folders
+- cross-method Monte Carlo comparison data is stored at `monte_carlo/comparison_terminal_values.csv`
 
 Constructors use:
 
