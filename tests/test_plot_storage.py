@@ -353,6 +353,33 @@ def test_visualizer_restricts_efficient_frontier_to_markowitz() -> None:
         shutil.rmtree(root, ignore_errors=True)
 
 
+def test_efficient_frontier_keeps_only_upper_branch() -> None:
+    root = fresh_test_root("frontier_upper_branch")
+    try:
+        universe = DummyUniversePlots(root)
+        visualizer = PortfolioVisualizer(universe)
+
+        expected_returns = pd.Series([0.0, 0.1], index=["A", "B"])
+        covariance = pd.DataFrame(
+            [[0.04, 0.01], [0.01, 0.09]],
+            index=expected_returns.index,
+            columns=expected_returns.index,
+        )
+
+        frontier = visualizer._compute_efficient_frontier(
+            expected_returns=expected_returns,
+            covariance=covariance,
+            allow_short=False,
+            n_points=25,
+        )
+
+        assert not frontier.empty
+        assert frontier["expected_return"].is_monotonic_increasing
+        assert float(frontier["expected_return"].min()) > float(expected_returns.min()) + 1e-6
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
 def test_save_everything_includes_universe_heatmaps() -> None:
     root = fresh_test_root("save_everything_heatmaps")
     try:

@@ -946,7 +946,33 @@ class PortfolioVisualizer:
         frontier = pd.DataFrame(rows)
         if frontier.empty:
             return frontier
-        return frontier.drop_duplicates(subset=["volatility", "expected_return"]).sort_values("volatility").reset_index(drop=True)
+        frontier = frontier.drop_duplicates(subset=["volatility", "expected_return"]).sort_values(
+            ["volatility", "expected_return"]
+        ).reset_index(drop=True)
+
+        # The target-return sweep traces the full minimum-variance frontier, which
+        # includes the lower branch below the global minimum-variance portfolio.
+        # For the plotted efficient frontier we keep only the upper branch.
+        gmv_idx = int(frontier["volatility"].idxmin())
+        gmv_return = float(frontier.loc[gmv_idx, "expected_return"])
+        tol = 1e-12
+
+        frontier = frontier.loc[frontier["expected_return"] >= gmv_return - tol].copy()
+        frontier = frontier.sort_values(["volatility", "expected_return"]).drop_duplicates(
+            subset=["volatility"],
+            keep="last",
+        )
+
+        keep_rows: list[bool] = []
+        running_max = -np.inf
+        for expected_return in frontier["expected_return"].to_numpy(dtype=float):
+            if expected_return + tol >= running_max:
+                keep_rows.append(True)
+                running_max = max(running_max, expected_return)
+            else:
+                keep_rows.append(False)
+
+        return frontier.loc[keep_rows].reset_index(drop=True)
 
     def _initial_frontier_guess(
         self,
